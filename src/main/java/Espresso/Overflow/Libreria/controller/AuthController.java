@@ -2,6 +2,7 @@ package Espresso.Overflow.Libreria.controller;
 
 import Espresso.Overflow.Libreria.model.Usuario;
 import Espresso.Overflow.Libreria.repository.UsuarioRepository;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
@@ -27,18 +28,27 @@ public class AuthController {
     }
 
     @PostMapping("/registro")
-    public String registrarUsuario(@ModelAttribute Usuario usuario) {
-        // Encriptar la contraseña introducida por el usuario
+    public String registrarUsuario(@ModelAttribute Usuario usuario, HttpServletRequest request) {
+        
+        // 1. Guardar la contraseña original en texto plano antes de encriptar para hacer el auto-login
+        String rawPassword = usuario.getPassword();
+        // 2. Encriptar la contraseña introducida por el usuario
         usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
         
         if (usuario.getRol() == null || usuario.getRol().isEmpty()) {
             usuario.setRol("USER");
         }
-
+        // 3. Guardar el usuario
         usuarioRepository.save(usuario);
 
-        // Redirigir al home o abrir el login directamente
-        return "redirect:/?registrado=true";
+        // 4. Autologin usando el método nativo de Servlet/Spring Security
+        try {
+            request.login(usuario.getEmail(), rawPassword);
+        } catch (ServletException e) {
+            return "redirect:/?loginRequired=true";
+        }
+
+        return "redirect:/";
     }
 
     @PostMapping("/iniciar-sesion")
