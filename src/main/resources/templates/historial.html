@@ -65,7 +65,7 @@
                 </div>
 
                 <!-- Botón de Devolución -->
-                <form th:action="@{/user/devolver}" method="POST">
+                <form th:action="@{/user/prestamos/devolver}" method="POST">
                     <input type="hidden" name="prestamoId" th:value="${prestamo.id}"/>
                     <button type="submit" class="w-full py-2 bg-slate-700 hover:bg-slate-600 text-xs font-semibold rounded-xl border border-slate-600 transition text-slate-200">
                         Realizar Devolución

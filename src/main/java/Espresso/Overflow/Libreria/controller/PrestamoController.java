@@ -25,12 +25,14 @@ public class PrestamoController {
 
     private final PrestamoRepository prestamoRepository;
     private final LibroRepository libroRepository;
+    private final UsuarioRepository usuarioRepository;
 
     public PrestamoController(PrestamoRepository prestamoRepository,
                               LibroRepository libroRepository,
                               UsuarioRepository usuarioRepository) {
         this.prestamoRepository = prestamoRepository;
         this.libroRepository = libroRepository;
+        this.usuarioRepository = usuarioRepository;
     }
 
     // 1. Mostrar la vista del formulario para solicitar un préstamo
@@ -54,7 +56,6 @@ public class PrestamoController {
     @PostMapping("/guardar")
     public String guardarPrestamo(@RequestParam("libroId") Long libroId,
                                   @RequestParam("semanas") Integer semanas,
-                                  UsuarioRepository usuarioRepository,
                                   Authentication authentication,
                                   RedirectAttributes redirectAttributes) {
 
