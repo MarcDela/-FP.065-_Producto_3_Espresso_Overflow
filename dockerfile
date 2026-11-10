@@ -16,4 +16,4 @@ COPY --from=builder /app/target/*.jar app.jar
 # Puerto de Spring Boot
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-Djava.net.preferIPv4Stack=true", "-jar", "app.jar"]

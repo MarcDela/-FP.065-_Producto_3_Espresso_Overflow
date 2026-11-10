@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<header th:fragment="navbar" class="bg-slate-800/90 backdrop-blur border-b border-slate-700/80 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        
+        <!-- Logo / Nombre -->
+        <a th:href="@{/}" class="flex items-center gap-2">
+            <span class="text-2xl">📚</span>
+            <span class="text-xl font-bold bg-gradient-to-r from-teal-400 to-sky-400 bg-clip-text text-transparent">
+                Espresso Library
+            </span>
+        </a>
+
+        <!-- Menú de Navegación -->
+        <nav class="flex items-center gap-6 text-sm font-medium">
+            <a th:href="@{/}" class="text-slate-300 hover:text-teal-400 transition-colors">Home</a>
+            <a th:href="@{/prestamos}" class="text-slate-300 hover:text-teal-400 transition-colors">Solicitar Préstamo</a>
+            <a th:href="@{/historial}" class="text-slate-300 hover:text-teal-400 transition-colors">Mis Prestamos</a>
+            
+            <!-- Visibilidad según ROL ADMIN -->
+            <a th:if="${session.usuarioLogueado != null and session.usuarioLogueado.rol == 'ADMIN'}" 
+               th:href="@{/gestion}" 
+               class="px-3 py-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition">
+                ⚙️ Gestión
+            </a>
+
+            <!-- Login / Estado de Sesión -->
+            <div class="pl-4 border-l border-slate-700 flex items-center gap-3">
+                <!-- Si hay usuario logueado en sesión -->
+                <div th:if="${session.usuarioLogueado != null}" class="flex items-center gap-3">
+                    <span class="text-xs text-slate-400">
+                        Hola, <strong class="text-slate-200" th:text="${session.usuarioLogueado.nombre}">Usuario</strong>
+                    </span>
+                    <a th:href="@{/cerrar-sesion}" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition">
+                        Cerrar Sesión
+                    </a>
+                </div>
+
+                <!-- Si NO hay usuario logueado en sesión -->
+                <button th:if="${session.usuarioLogueado == null}" 
+                        type="button" 
+                        onclick="openLoginModal()" 
+                        class="px-4 py-1.5 text-xs font-semibold rounded-lg bg-teal-500 text-slate-950 hover:bg-teal-400 transition">
+                    Iniciar Sesión
+                </button>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Modal Pop-up de Login Centrado -->
+    <div id="loginModal" class="fixed inset-0 w-screen h-screen bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 hidden z-[100]">
+        <div class="bg-slate-800 border border-slate-700/80 rounded-2xl max-w-sm w-full p-6 space-y-5 shadow-2xl relative">
+            
+            <div class="flex justify-between items-center border-b border-slate-700/80 pb-3">
+                <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+                    🔑 <span>Iniciar Sesión</span>
+                </h3>
+                <button type="button" onclick="closeLoginModal()" class="text-slate-400 hover:text-slate-100 text-sm">✕</button>
+            </div>
+
+            <!-- Formulario enviando a /login -->
+            <form th:action="@{/iniciar-sesion}" method="POST" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Correo Electrónico</label>
+                    <input type="email" name="email" required placeholder="admin@espressolibrary.com" 
+                           class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-slate-100 focus:outline-none focus:border-teal-400 transition placeholder-slate-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Contraseña</label>
+                    <input type="password" name="password" required placeholder="••••••••" 
+                           class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-slate-100 focus:outline-none focus:border-teal-400 transition placeholder-slate-500">
+                </div>
+
+                <button type="submit" class="w-full bg-gradient-to-r from-teal-500 to-sky-500 hover:from-teal-400 hover:to-sky-400 text-slate-950 font-bold py-2.5 rounded-xl text-sm transition shadow-lg shadow-teal-500/10 mt-2">
+                    Entrar
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Script de control Modal -->
+    <script>
+        function openLoginModal() { document.getElementById('loginModal').classList.remove('hidden'); }
+        function closeLoginModal() { document.getElementById('loginModal').classList.add('hidden'); }
+    </script>
+</header>
+</html>

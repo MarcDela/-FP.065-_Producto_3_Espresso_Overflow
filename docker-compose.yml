@@ -1,52 +1,28 @@
 version: '3.8'
 
 services:
-  mysql-db:
-    image: mysql:8.0
-    container_name: mysql_libreria
-    restart: always
-    env_file:
-      - .env
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    ports:
-      - "${MYSQL_PORT}:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-    networks:
-      - libreria-net
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_PASSWORD}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   app:
     build: .
+    image: app_libreria:v2.0
     container_name: app_libreria
     restart: always
     env_file:
       - .env
     ports:
-      - "${SERVER_PORT}:8080"
+      - "${SERVER_PORT}:${SERVER_PORT}"
     environment:
-      DB_HOST: mysql-db
-      MYSQL_PORT: 3306
+      SERVER_PORT: ${SERVER_PORT}
+      DB_HOST: host.docker.internal
+      MYSQL_PORT: ${MYSQL_PORT}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      SERVER_PORT: 8080
-    depends_on:
-      mysql-db:
-        condition: service_healthy
+      SECURITY_USER_NAME: ${SECURITY_USER_NAME}
+      SECURITY_USER_PASSWORD: ${SECURITY_USER_PASSWORD}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - libreria-net
-
-volumes:
-  mysql_data:
 
 networks:
   libreria-net:

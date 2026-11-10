@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solicitar Préstamo - Espresso Library</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">
+
+    <!-- Navbar -->
+    <div th:replace="~{fragments/navbar :: navbar}"></div>
+
+    <main class="max-w-4xl mx-auto px-4 py-12 space-y-8">
+        
+        <div class="text-center space-y-2">
+            <h1 class="text-3xl font-extrabold text-slate-100">Solicitar Nuevo Préstamo</h1>
+            <p class="text-slate-400 text-sm">Selecciona el libro y la duración estimada para formalizar el préstamo</p>
+        </div>
+
+        <!-- Alerta si NO hay sesión iniciada -->
+        <div th:if="${session.usuarioLogueado == null}" 
+             class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-center justify-between gap-4 text-amber-300">
+            <div class="flex items-center gap-3 text-sm">
+                <span class="text-xl">⚠️</span>
+                <span>Debes <strong>iniciar sesión</strong> para poder formalizar la solicitud del préstamo.</span>
+            </div>
+            <button type="button" onclick="openLoginModal()" 
+                    class="px-3.5 py-1.5 bg-amber-500 text-slate-950 font-bold text-xs rounded-lg hover:bg-amber-400 transition whitespace-nowrap">
+                Iniciar Sesión
+            </button>
+        </div>
+
+        <!-- Mensaje de error Flash (si venía redirigido) -->
+        <div th:if="${error}" 
+             class="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 text-rose-300 text-sm flex items-center gap-3">
+            <span>❌</span>
+            <span th:text="${error}">Mensaje de error</span>
+        </div>
+
+        <!-- Formulario de Préstamo -->
+        <form th:action="@{/prestamos/guardar}" method="POST" class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
+            
+            <!-- Libro Seleccionado -->
+            <div class="space-y-2">
+                <label class="block text-sm font-semibold text-slate-300">Libro Seleccionado</label>
+                <div class="flex items-center gap-4 p-4 bg-slate-900/80 rounded-xl border border-slate-700/60">
+                    <input type="hidden" id="libroIdInput" name="libroId" th:value="${libroSeleccionado != null ? libroSeleccionado.id : ''}" required />
+                    
+                    <div class="flex-1">
+                        <p id="libroTituloDisplay" class="font-bold text-slate-100" 
+                           th:text="${libroSeleccionado != null ? libroSeleccionado.titulo : 'Ningún libro seleccionado'}">
+                           Ningún libro seleccionado
+                        </p>
+                        <p id="libroAutorDisplay" class="text-xs text-slate-400" 
+                           th:text="${libroSeleccionado != null ? libroSeleccionado.autor : 'Haz clic en el botón para buscar en el catálogo'}">
+                           Haz clic en el botón para buscar en el catálogo
+                        </p>
+                    </div>
+
+                    <button type="button" onclick="openModal()" 
+                            class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-xs font-semibold rounded-lg border border-slate-500/50 transition">
+                        🔍 Buscar Libro
+                    </button>
+                </div>
+            </div>
+
+            <!-- Selector Fecha / Duración por Semanas -->
+            <div class="space-y-2">
+                <label for="semanas" class="block text-sm font-semibold text-slate-300">Duración del préstamo (Semanas)</label>
+                <select id="semanas" name="semanas" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-teal-500 transition">
+                    <option value="1">1 Semana (Devolución rápida)</option>
+                    <option value="2" selected>2 Semanas (Estándar)</option>
+                    <option value="3">3 Semanas</option>
+                    <option value="4">4 Semanas (Máximo permitido)</option>
+                </select>
+            </div>
+
+            <!-- Botón de Confirmación (Condicionado por sesión) -->
+            <button th:if="${session.usuarioLogueado != null}" 
+                    type="submit" 
+                    class="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-teal-500 to-sky-500 hover:from-teal-400 hover:to-sky-400 text-slate-950 font-bold shadow-lg shadow-teal-500/10 transition">
+                Confirmar Solicitud de Préstamo
+            </button>
+        </form>
+    </main>
+
+    <!-- Pop-up Modal Seleccionar Libro -->
+    <div id="libroModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-2xl">
+            
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 class="text-lg font-bold text-slate-100">Catálogo de Libros Disponibles</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-100">✕</button>
+            </div>
+
+            <!-- Buscador en tiempo real -->
+            <input type="text" id="buscadorModal" onkeyup="filtrarLibros()" placeholder="Buscar por título o autor..." 
+                   class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-teal-500">
+
+            <!-- Listado con tarjetas/filas de libros -->
+            <div class="max-h-72 overflow-y-auto space-y-3 pr-1" id="listaLibros">
+                <div th:each="libro : ${librosDisponibles}" 
+                     class="libro-item bg-slate-900/60 border border-slate-700/50 p-3 rounded-xl flex items-center justify-between hover:border-teal-500/50 transition">
+                    <div>
+                        <h4 class="font-bold text-sm text-slate-100 libro-titulo" th:text="${libro.titulo}">Título</h4>
+                        <p class="text-xs text-slate-400 libro-autor" th:text="${libro.autor}">Autor</p>
+                    </div>
+                    <button type="button" 
+                            th:onclick="seleccionarLibro([[${libro.id}]], [[${libro.titulo}]], [[${libro.autor}]])"
+                            class="px-3 py-1.5 bg-teal-500/10 text-teal-400 border border-teal-500/20 text-xs font-semibold rounded-lg hover:bg-teal-500/20 transition">
+                        Seleccionar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script de control Modal y Búsqueda -->
+    <script>
+        function openModal() { document.getElementById('libroModal').classList.remove('hidden'); }
+        function closeModal() { document.getElementById('libroModal').classList.add('hidden'); }
+        
+        function seleccionarLibro(id, titulo, autor) {
+            document.getElementById('libroIdInput').value = id;
+            document.getElementById('libroTituloDisplay').innerText = titulo;
+            document.getElementById('libroAutorDisplay').innerText = autor;
+            closeModal();
+        }
+
+        function filtrarLibros() {
+            const query = document.getElementById('buscadorModal').value.toLowerCase();
+            document.querySelectorAll('.libro-item').forEach(item => {
+                const titulo = item.querySelector('.libro-titulo').innerText.toLowerCase();
+                const autor = item.querySelector('.libro-autor').innerText.toLowerCase();
+                item.style.display = (titulo.includes(query) || autor.includes(query)) ? 'flex' : 'none';
+            });
+        }
+    </script>
+</body>
+</html>

@@ -3,41 +3,191 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hello World - Proyecto Librería</title>
+    <title>Catálogo - Espresso Library</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center font-sans antialiased">
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">
 
-    <div class="max-w-xl w-full mx-4 p-8 bg-slate-800/80 backdrop-blur border border-slate-700 rounded-2xl shadow-2xl text-center space-y-6">
-    
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-            Spring Boot Activo
+    <!-- Incluir Navbar Reutilizable -->
+    <div th:replace="~{fragments/navbar :: navbar}"></div>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+        
+        <!-- Header de la sección con Buscador y Filtros -->
+        <div class="flex flex-col md:flex-row md:items-end justify-between border-b border-slate-800 pb-5 gap-4">
+            <div>
+                <h1 class="text-3xl font-extrabold text-slate-100">Catálogo de Libros</h1>
+                <p class="text-slate-400 text-sm mt-1">Explora nuestra colección de libros disponibles para préstamo</p>
+            </div>
+
+            <!-- Formulario de Búsqueda y Filtros -->
+            <form th:action="@{/}" method="get" class="flex flex-wrap items-center gap-3">
+                
+                <!-- Input de Búsqueda -->
+                <div class="relative">
+                    <input type="text" 
+                           name="buscar" 
+                           th:value="${buscar}" 
+                           placeholder="Buscar por libro o autor..." 
+                           class="bg-slate-800 text-slate-200 border border-slate-700 focus:border-teal-400 focus:outline-none rounded-lg px-4 py-2 text-sm pl-9 w-64 md:w-80 placeholder-slate-500 transition" />
+                    
+                    <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                </div>
+
+                <!-- Filtro Checkbox "Solo disponibles" -->
+                <label class="flex items-center gap-2 bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-lg px-3 py-2 cursor-pointer text-xs text-slate-300 transition select-none">
+                    <input type="checkbox" 
+                           name="soloDisponibles" 
+                           value="true" 
+                           th:checked="${soloDisponibles}" 
+                           onchange="this.form.submit()"
+                           class="w-4 h-4 text-teal-500 rounded border-slate-700 focus:ring-teal-400 bg-slate-900 cursor-pointer" />
+                    <span>🟢 Solo disponibles</span>
+                </label>
+
+                <!-- Botón Buscar -->
+                <button type="submit" class="bg-teal-500 hover:bg-teal-600 text-slate-900 font-medium text-sm px-4 py-2 rounded-lg transition">
+                    Buscar
+                </button>
+                
+                <!-- Botón Limpiar Filtros -->
+                <a th:if="${(buscar != null and !buscar.isBlank()) or soloDisponibles}" 
+                   th:href="@{/}" 
+                   class="text-xs text-slate-400 hover:text-white underline ml-1">
+                    Limpiar
+                </a>
+            </form>
         </div>
 
-        <h1 class="text-4xl sm:text-5xl font-extrabold bg-gradient-to-r from-teal-400 via-sky-400 to-indigo-400 bg-clip-text text-transparent">
-            ¡Hola Mundo!
-        </h1>
+        <!-- Mensaje si no se encuentran libros -->
+        <div th:if="${#lists.isEmpty(libros)}" class="text-center py-12 bg-slate-800/40 rounded-2xl border border-slate-800">
+            <span class="text-4xl">🔍</span>
+            <h3 class="text-lg font-medium text-slate-300 mt-3">No se encontraron libros</h3>
+            <p class="text-slate-500 text-sm mt-1">Prueba a buscar con otro término o desactiva los filtros.</p>
+            <a th:href="@{/}" class="inline-block mt-4 text-xs font-semibold text-teal-400 hover:underline">Ver todos los libros</a>
+        </div>
 
-        <p class="text-lg text-slate-300 leading-relaxed" th:text="${mensaje}">
-            Mensaje por defecto si falla Thymeleaf...
-        </p>
+        <!-- Grid de Libros (Tarjetas) -->
+        <div th:if="${!#lists.isEmpty(libros)}" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div th:each="libro : ${libros}" 
+                 th:onclick="openDetalleModal([[${libro.titulo}]], [[${libro.autor}]], [[${libro.descripcion}]], [[${libro.linkimagen}]], [[${libro.disponible}]], [[${libro.id}]])"
+                 class="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-5 flex flex-col justify-between space-y-4 hover:border-slate-600 transition shadow-xl cursor-pointer group">
+                
+                <div class="space-y-3">
+                    <!-- Imagen Portada -->
+                    <div class="w-full h-64 bg-slate-900 rounded-xl overflow-hidden flex items-center justify-center border border-slate-700/50 p-2">
+                        <img th:if="${libro.linkimagen != null}" th:src="${libro.linkimagen}" class="object-contain w-full h-full group-hover:scale-105 transition-transform duration-300" alt="Portada"/>
+                        <span th:if="${libro.linkimagen == null}" class="text-4xl text-slate-600">📖</span>
+                    </div>
 
-        <div class="p-4 bg-slate-900/60 rounded-xl border border-slate-700/50 text-left space-y-2 text-sm text-slate-400">
-            <div class="flex justify-between items-center">
-                <span>Estado Servidor:</span>
-                <span class="text-emerald-400 font-mono">200 OK</span>
-            </div>
-            <div class="flex justify-between items-center">
-                <span>Framework:</span>
-                <span class="text-sky-400 font-mono">Spring Boot 3 / MVC</span>
+                    <!-- Título y Autor -->
+                    <div>
+                        <h3 class="font-bold text-lg text-slate-100 leading-snug group-hover:text-teal-400 transition" th:text="${libro.titulo}">Título del Libro</h3>
+                        <p class="text-sm text-slate-400" th:text="${libro.autor}">Autor del libro</p>
+                    </div>
+
+                    <p class="text-xs text-slate-400 line-clamp-2" th:text="${libro.descripcion}">Descripción breve del contenido del libro...</p>
+                </div>
+
+                <!-- Footer de la tarjeta: Estado y Botón -->
+                <div class="pt-3 border-t border-slate-700/50 flex items-center justify-between">
+                    <span th:if="${libro.disponible}" class="px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        ● Disponible
+                    </span>
+                    <span th:if="${!libro.disponible}" class="px-2.5 py-1 text-xs font-semibold rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                        ● Prestado
+                    </span>
+
+                    <a th:if="${libro.disponible}" th:href="@{/prestamos(libroId=${libro.id})}" 
+                       onclick="event.stopPropagation()"
+                       class="text-xs font-semibold text-teal-400 hover:text-teal-300 transition">
+                        Solicitar →
+                    </a>
+                </div>
             </div>
         </div>
 
-        <p class="text-xs text-slate-500 pt-2 border-t border-slate-700/50">
-            Producto 1 • Aplicación back-end con Java en servidores de aplicaciones
-        </p>
+    </main>
+
+    <!-- Pop-up Modal Detalle Libro Ampliado -->
+    <div id="detalleModal" class="fixed inset-0 w-screen h-screen bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 hidden z-[100]">
+        <div class="bg-slate-800 border border-slate-700/80 rounded-3xl max-w-4xl w-full p-6 sm:p-8 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            
+            <!-- Cabecera Modal -->
+            <div class="flex justify-between items-center border-b border-slate-700/80 pb-4">
+                <div id="modalBadge"></div>
+                <button type="button" onclick="closeDetalleModal()" class="text-slate-400 hover:text-slate-100 text-xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-700/50 transition">✕</button>
+            </div>
+
+            <!-- Contenido Modal Ampliado -->
+            <div class="flex flex-col md:flex-row gap-8 items-center md:items-start">
+                
+                <!-- Portada Grande -->
+                <div class="w-56 h-80 bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center border border-slate-700 shadow-2xl flex-shrink-0 p-3">
+                    <img id="modalImagen" src="" alt="Portada" class="object-contain w-full h-full hidden">
+                    <span id="modalIconoFallback" class="text-7xl text-slate-600 hidden">📖</span>
+                </div>
+                
+                <!-- Detalles e Información -->
+                <div class="space-y-6 flex-1 text-center md:text-left flex flex-col justify-between min-h-[20rem]">
+                    <div class="space-y-2">
+                        <h2 id="modalTitulo" class="text-3xl sm:text-4xl font-black text-slate-100 leading-tight">Título del Libro</h2>
+                        <p id="modalAutor" class="text-base font-bold text-teal-400">Autor del Libro</p>
+                    </div>
+
+                    <div class="space-y-2">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Sinopsis</h4>
+                        <p id="modalDescripcion" class="text-sm sm:text-base text-slate-300 leading-relaxed max-h-60 overflow-y-auto pr-2">
+                            Descripción completa del libro...
+                        </p>
+                    </div>
+
+                    <div id="modalBotonContainer" class="pt-4 border-t border-slate-700/50 flex justify-center md:justify-start">
+                        <!-- El botón se genera con JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
+    <!-- Script para abrir/cerrar el Modal -->
+    <script>
+        function openDetalleModal(titulo, autor, descripcion, linkimagen, disponible, id) {
+            document.getElementById('modalTitulo').innerText = titulo;
+            document.getElementById('modalAutor').innerText = autor;
+            document.getElementById('modalDescripcion').innerText = descripcion || 'Sin descripción disponible.';
+
+            const modalImagen = document.getElementById('modalImagen');
+            const modalIcono = document.getElementById('modalIconoFallback');
+
+            if (linkimagen && linkimagen !== 'null' && linkimagen.trim() !== '') {
+                modalImagen.src = linkimagen;
+                modalImagen.classList.remove('hidden');
+                modalIcono.classList.add('hidden');
+            } else {
+                modalImagen.classList.add('hidden');
+                modalIcono.classList.remove('hidden');
+            }
+
+            const badgeContainer = document.getElementById('modalBadge');
+            const botonContainer = document.getElementById('modalBotonContainer');
+
+            if (disponible) {
+                badgeContainer.innerHTML = '<span class="px-3.5 py-1.5 text-xs font-bold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">● Disponible para préstamo</span>';
+                botonContainer.innerHTML = `<a href="/prestamos?libroId=${id}" class="inline-block px-8 py-3 bg-gradient-to-r from-teal-500 to-sky-500 hover:from-teal-400 hover:to-sky-400 text-slate-950 font-extrabold rounded-xl text-sm transition shadow-lg shadow-teal-500/10">Solicitar Préstamo</a>`;
+            } else {
+                badgeContainer.innerHTML = '<span class="px-3.5 py-1.5 text-xs font-bold rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">● Actualmente en préstamo</span>';
+                botonContainer.innerHTML = `<button disabled class="px-8 py-3 bg-slate-700 text-slate-400 font-bold rounded-xl text-sm cursor-not-allowed">No Disponible Actualmente</button>`;
+            }
+
+            document.getElementById('detalleModal').classList.remove('hidden');
+        }
+
+        function closeDetalleModal() {
+            document.getElementById('detalleModal').classList.add('hidden');
+        }
+    </script>
 </body>
 </html>

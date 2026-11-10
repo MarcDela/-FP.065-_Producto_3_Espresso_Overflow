@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Gestión - Espresso Library</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">
+
+    <!-- Navbar -->
+    <div th:replace="~{fragments/navbar :: navbar}"></div>
+
+    <!-- PANTALLA DE ERROR / SIN PERMISOS (Solo visible si NO es ADMIN) -->
+    <main th:unless="${session.usuarioLogueado != null and session.usuarioLogueado.rol == 'ADMIN'}"
+        class="max-w-3xl mx-auto px-4 py-20 text-center space-y-6">
+        <div class="bg-slate-800/80 border border-slate-700/80 rounded-3xl p-10 shadow-2xl space-y-4">
+            <div class="text-6xl mb-2">🚫</div>
+            <h1 class="text-2xl font-black text-rose-400">Acceso Restringido</h1>
+            <p class="text-slate-300 text-sm max-w-md mx-auto leading-relaxed">
+                Necesitas tener permisos de administración para acceder a esta ventana.
+            </p>
+            <div class="pt-4">
+                <a th:href="@{/}"
+                    class="inline-block px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-100 font-bold text-xs rounded-xl transition">
+                    ← Volver al Catálogo
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <!-- CONTENIDO DEL PANEL DE GESTIÓN (Solo visible para ADMIN) -->
+    <main th:if="${session.usuarioLogueado != null and session.usuarioLogueado.rol == 'ADMIN'}"
+        class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
+
+        <!-- Header del Panel -->
+        <div class="flex flex-col md:flex-row justify-between md:items-end gap-4 border-b border-slate-800 pb-5">
+            <div>
+                <h1 class="text-3xl font-extrabold text-slate-100">Gestión de la Librería</h1>
+                <p class="text-slate-400 text-sm mt-1">Panel de administración para el control centralizado de entidades
+                </p>
+            </div>
+
+            <!-- Buscador y Botón Dinámico -->
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div class="relative">
+                    <input type="text" id="tablaBuscador" onkeyup="filtrarTabla()" placeholder="Buscar en la lista..."
+                        class="bg-slate-800 text-slate-200 border border-slate-700 focus:border-teal-400 focus:outline-none rounded-xl px-4 py-2.5 text-xs pl-9 w-full sm:w-64 placeholder-slate-500 transition shadow-inner">
+                    <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+
+                <button id="btn-nuevo-dinamico" onclick="abrirModalCrear()"
+                    class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-500/10 transition flex items-center justify-center gap-2">
+                    ➕ Añadir Nuevo Usuario
+                </button>
+            </div>
+        </div>
+
+        <!-- Botones de Pestañas (Tabs) -->
+        <div class="flex items-center gap-3">
+            <button onclick="switchTab('usuarios')" id="btn-usuarios"
+                class="tab-btn px-5 py-2.5 text-xs font-bold rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 transition">
+                👤 Usuarios
+            </button>
+            <button onclick="switchTab('libros')" id="btn-libros"
+                class="tab-btn px-5 py-2.5 text-xs font-bold rounded-xl bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700 transition">
+                📚 Libros
+            </button>
+            <button onclick="switchTab('prestamos')" id="btn-prestamos"
+                class="tab-btn px-5 py-2.5 text-xs font-bold rounded-xl bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700 transition">
+                📋 Préstamos
+            </button>
+        </div>
+
+        <!-- Tablas de Información -->
+        <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-6 shadow-2xl">
+
+            <!-- Tab 1: Usuarios -->
+            <div id="tab-usuarios" class="tab-content">
+                <h3 class="font-bold text-lg mb-4 text-slate-200">Listado de Usuarios Registrados</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-300" id="tabla-usuarios">
+                        <thead class="bg-slate-900/60 text-slate-400 text-xs uppercase border-b border-slate-700/50">
+                            <tr>
+                                <th class="p-3">ID</th>
+                                <th class="p-3">Nombre</th>
+                                <th class="p-3">Email</th>
+                                <th class="p-3">Teléfono</th>
+                                <th class="p-3">Rol</th>
+                                <th class="p-3 text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700/50">
+                            <tr th:each="usuario : ${listaUsuarios}" class="hover:bg-slate-700/30 transition">
+                                <td class="p-3 font-mono text-xs text-slate-400" th:text="${usuario.id}">1</td>
+                                <td class="p-3 font-semibold text-slate-100" th:text="${usuario.nombre}">Marc</td>
+                                <td class="p-3 text-slate-300" th:text="${usuario.email}">marc@libreria.com</td>
+                                <td class="p-3 text-slate-400"
+                                    th:text="${usuario.telefono != null ? usuario.telefono : '-'}">600112233</td>
+                                <td class="p-3">
+                                    <span th:text="${usuario.rol}"
+                                        th:classappend="${usuario.rol == 'ADMIN'} ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-slate-700 text-slate-300 border-slate-600'"
+                                        class="px-2.5 py-0.5 text-[10px] font-bold rounded-full border">ADMIN</span>
+                                </td>
+                                <td class="p-3 text-right space-x-2">
+                                    <button
+                                        th:onclick="prepararEdicionUsuario([[${usuario.id}]], [[${usuario.nombre}]], [[${usuario.email}]], [[${usuario.telefono}]], [[${usuario.rol}]])"
+                                        class="px-2.5 py-1 text-xs bg-sky-500/10 hover:bg-sky-500 text-sky-400 hover:text-slate-950 border border-sky-500/20 font-semibold rounded-lg transition">
+                                        Editar
+                                    </button>
+                                    <a th:href="@{/gestion/eliminar-usuario/{id}(id=${usuario.id})}"
+                                        onclick="return confirm('¿Seguro que deseas eliminar este usuario?');"
+                                        class="px-2.5 py-1 text-xs bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-slate-950 border border-rose-500/20 font-semibold rounded-lg transition">
+                                        Eliminar
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab 2: Libros -->
+            <div id="tab-libros" class="tab-content hidden">
+                <h3 class="font-bold text-lg mb-4 text-slate-200">Inventario de Libros</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-300 table-fixed" id="tabla-libros">
+                        <thead class="bg-slate-900/60 text-slate-400 text-xs uppercase border-b border-slate-700/50">
+                            <tr>
+                                <th class="p-3 w-12 text-center">ID</th>
+                                <th class="p-3 w-16 text-center">Portada</th>
+                                <th class="p-3 w-1/5">Título</th>
+                                <th class="p-3 w-1/6">Autor</th>
+                                <th class="p-3">Sinopsis</th>
+                                <th class="p-3 w-32 text-center whitespace-nowrap">Estado</th>
+                                <th class="p-3 w-36 text-right whitespace-nowrap">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700/50">
+                            <tr th:each="libro : ${listaLibros}" class="hover:bg-slate-700/30 transition">
+                                <td class="p-3 font-mono text-xs text-slate-400 text-center" th:text="${libro.id}">1
+                                </td>
+                                <td class="p-3 text-center">
+                                    <img th:if="${libro.linkimagen != null}" th:src="${libro.linkimagen}"
+                                        class="w-8 h-10 object-cover rounded shadow border border-slate-700 mx-auto">
+                                    <span th:if="${libro.linkimagen == null}" class="text-lg">📖</span>
+                                </td>
+                                <td class="p-3 font-semibold text-slate-100 truncate" th:text="${libro.titulo}"
+                                    th:title="${libro.titulo}">Título</td>
+                                <td class="p-3 text-slate-300 truncate" th:text="${libro.autor}"
+                                    th:title="${libro.autor}">Autor</td>
+                                <td class="p-3 text-xs text-slate-400">
+                                    <p class="line-clamp-2 leading-relaxed" th:text="${libro.descripcion}">Descripción
+                                        del libro...</p>
+                                </td>
+                                <td class="p-3 text-center whitespace-nowrap">
+                                    <span th:text="${libro.disponible ? '● Disponible' : '○ Prestado'}"
+                                        th:classappend="${libro.disponible} ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'"
+                                        class="inline-block px-3 py-1 text-[11px] font-bold rounded-full border">Disponible</span>
+                                </td>
+                                <td class="p-3 text-right whitespace-nowrap">
+                                    <div class="flex items-center justify-end gap-1.5">
+                                        <button
+                                            th:onclick="prepararEdicionLibro([[${libro.id}]], [[${libro.titulo}]], [[${libro.autor}]], [[${libro.linkimagen}]], [[${libro.descripcion}]])"
+                                            class="px-2.5 py-1 text-xs bg-sky-500/10 hover:bg-sky-500 text-sky-400 hover:text-slate-950 border border-sky-500/20 font-semibold rounded-lg transition">
+                                            Editar
+                                        </button>
+                                        <a th:href="@{/gestion/eliminar-libro/{id}(id=${libro.id})}"
+                                            onclick="return confirm('¿Eliminar este libro del catálogo?');"
+                                            class="px-2.5 py-1 text-xs bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-slate-950 border border-rose-500/20 font-semibold rounded-lg transition">
+                                            Eliminar
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab 3: Préstamos -->
+            <div id="tab-prestamos" class="tab-content hidden">
+                <h3 class="font-bold text-lg mb-4 text-slate-200">Histórico General de Préstamos</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-300 table-fixed" id="tabla-prestamos">
+                        <thead class="bg-slate-900/60 text-slate-400 text-xs uppercase border-b border-slate-700/50">
+                            <tr>
+                                <th class="p-3 w-12 text-center">ID</th>
+                                <th class="p-3 w-1/4">Libro</th>
+                                <th class="p-3 w-1/4">Usuario</th>
+                                <th class="p-3 w-32 text-center">Fecha Inicio</th>
+                                <th class="p-3 w-32 text-center">Fecha Límite</th>
+                                <th class="p-3 w-36 text-right whitespace-nowrap">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700/50">
+                            <tr th:each="p : ${listaPrestamos}" class="hover:bg-slate-700/30 transition">
+                                <td class="p-3 font-mono text-xs text-slate-400 text-center" th:text="${p.id}">1</td>
+                                <td class="p-3 font-semibold text-slate-100 truncate"
+                                    th:text="${p.libro != null ? p.libro.titulo : 'Libro eliminado'}">Libro</td>
+                                <td class="p-3 text-teal-400 font-medium truncate"
+                                    th:text="${p.usuario != null ? p.usuario.nombre : 'Usuario eliminado'}">Usuario</td>
+                                <td class="p-3 text-xs text-slate-400 text-center" th:text="${p.fechaPrestamo}">
+                                    2026-10-01</td>
+                                <td class="p-3 text-xs font-semibold text-amber-400 text-center"
+                                    th:text="${p.fechaDevolucion}">2026-10-15</td>
+                                <td class="p-3 text-right whitespace-nowrap">
+                                    <div class="flex items-center justify-end gap-1.5">
+                                        <button
+                                            th:onclick="prepararEdicionPrestamo([[${p.id}]], [[${p.fechaDevolucion}]])"
+                                            class="px-2.5 py-1 text-xs bg-sky-500/10 hover:bg-sky-500 text-sky-400 hover:text-slate-950 border border-sky-500/20 font-semibold rounded-lg transition">
+                                            Ampliar Plazo
+                                        </button>
+                                        <a th:href="@{/gestion/eliminar-prestamo/{id}(id=${p.id})}"
+                                            onclick="return confirm('¿Registrar devolución y finalizar este préstamo?');"
+                                            class="px-2.5 py-1 text-xs bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-slate-950 border border-emerald-500/20 font-semibold rounded-lg transition">
+                                            Finalizar
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Modal Formulario Usuario (Crear / Editar) -->
+    <div id="modalUsuario"
+        class="fixed inset-0 w-screen h-screen bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 hidden z-[100]">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 id="tituloModalUsuario" class="font-bold text-lg text-slate-100">Crear Nuevo Usuario</h3>
+                <button onclick="cerrarModales()" class="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <form th:action="@{/gestion/guardar-usuario}" method="POST" class="space-y-4">
+                <input type="hidden" name="id" id="u_id">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">Nombre Completo</label>
+                    <input type="text" name="nombre" id="u_nombre" required
+                        class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:border-teal-400 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">Email</label>
+                    <input type="email" name="email" id="u_email" required
+                        class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:border-teal-400 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">Teléfono</label>
+                    <input type="text" name="telefono" id="u_telefono" placeholder="600000000"
+                        class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:border-teal-400 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">Contraseña <span id="lblPasswordOpcional"
+                            class="text-slate-500 font-normal hidden">(dejar en blanco si no se desea
+                            cambiar)</span></label>
+                    <input type="password" name="password" id="u_password"
+                        class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:border-teal-400 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">Rol</label>
+                    <select name="rol" id="u_rol"
+                        class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:border-teal-400 focus:outline-none">
+                        <option value="USER">USER</option>
+                        <option value="ADMIN">ADMIN</option>
+                    </select>
+                </div>
+                <div class="pt-3 flex justify-end gap-2 border-t border-slate-700">
+                    <button type="button" onclick="cerrarModales()"
+                        class="px-4 py-2 bg-slate-700 text-slate-300 font-bold text-xs rounded-xl">Cancelar</button>
+                    <button type="submit"
+                        class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs rounded-xl transition">Guardar
+                        Usuario</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Formulario Libro (Crear / Editar) -->
+    <div id="modalLibro"
+        class="fixed inset-0 w-screen h-screen bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 hidden z-[100]">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 id="tituloModalLibro" class="font-bold text-lg text-slate-100">Añadir Nuevo Libro</h3>
+                <button onclick="cerrarModales()" class="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <form th:action="@{/gestion/guardar-libro}" method="POST" class="space-y-4">
+                <input type="hidden" name="id" id="l_id">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">Título</label>
+                    <input type="text" name="titulo" id="l_titulo" required
+                        class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:border-teal-400 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">Autor</label>
+                    <input type="text" name="autor" id="l_autor" required
+                        class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:border-teal-400 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">URL de la Portada (ImgBB / Enlace
+                        directo)</label>
+                    <input type="url" name="linkimagen" id="l_linkimagen" placeholder="https://i.ibb.co/..."
+                        class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:border-teal-400 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">Sinopsis / Descripción</label>
+                    <textarea name="descripcion" id="l_descripcion" rows="3"
+                        class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:border-teal-400 focus:outline-none"></textarea>
+                </div>
+                <div class="pt-3 flex justify-end gap-2 border-t border-slate-700">
+                    <button type="button" onclick="cerrarModales()"
+                        class="px-4 py-2 bg-slate-700 text-slate-300 font-bold text-xs rounded-xl">Cancelar</button>
+                    <button type="submit"
+                        class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs rounded-xl transition">Guardar
+                        Libro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Formulario Registrar Nuevo Préstamo (Admin) -->
+    <div id="modalPrestamo"
+        class="fixed inset-0 w-screen h-screen bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 hidden z-[100]">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 class="font-bold text-lg text-slate-100">Registrar Nuevo Préstamo</h3>
+                <button onclick="cerrarModales()" class="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <form th:action="@{/gestion/nuevo-prestamo}" method="POST" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">Seleccionar Usuario</label>
+                    <select name="usuarioId" required
+                        class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:border-teal-400 focus:outline-none">
+                        <option value="">-- Selecciona un Usuario --</option>
+                        <option th:each="u : ${listaUsuarios}" th:value="${u.id}"
+                            th:text="${u.nombre + ' (' + u.email + ')'}"></option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">Seleccionar Libro Disponible</label>
+                    <select name="libroId" required
+                        class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:border-teal-400 focus:outline-none">
+                        <option value="">-- Selecciona un Libro --</option>
+                        <option th:each="l : ${listaLibros}" th:if="${l.disponible}" th:value="${l.id}"
+                            th:text="${l.titulo + ' - ' + l.autor}"></option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">Duración del Préstamo</label>
+                    <select name="semanas" required
+                        class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:border-teal-400 focus:outline-none">
+                        <option value="1">1 Semana</option>
+                        <option value="2" selected>2 Semanas</option>
+                        <option value="3">3 Semanas</option>
+                        <option value="4">4 Semanas (Máximo)</option>
+                    </select>
+                </div>
+                <div class="pt-3 flex justify-end gap-2 border-t border-slate-700">
+                    <button type="button" onclick="cerrarModales()"
+                        class="px-4 py-2 bg-slate-700 text-slate-300 font-bold text-xs rounded-xl">Cancelar</button>
+                    <button type="submit"
+                        class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950           font-extrabold text-xs rounded-xl transition">Confirmar
+                        Préstamo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Editar Fecha Préstamo -->
+    <div id="modalEditarPrestamo"
+        class="fixed inset-0 w-screen h-screen bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 hidden z-[100]">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-sm w-full p-6 space-y-5 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 id="tituloModalEditarPrestamo" class="font-bold text-lg text-slate-100">Modificar Préstamo</h3>
+                <button onclick="cerrarModales()" class="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <form th:action="@{/gestion/editar-prestamo}" method="POST" class="space-y-4">
+                <input type="hidden" name="id" id="p_id">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">Nueva Fecha Límite de Devolución</label>
+                    <input type="date" name="fechaDevolucion" id="p_fechaDevolucion" required
+                        class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:border-teal-400 focus:outline-none">
+                </div>
+                <div class="pt-3 flex justify-end gap-2 border-t border-slate-700">
+                    <button type="button" onclick="cerrarModales()"
+                        class="px-4 py-2 bg-slate-700 text-slate-300 font-bold text-xs rounded-xl">Cancelar</button>
+                    <button type="submit"
+                        class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs rounded-xl transition">Guardar
+                        Fecha</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts JS -->
+    <script>
+        let currentTab = 'usuarios';
+
+        function switchTab(tabName) {
+            currentTab = tabName;
+
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = "tab-btn px-5 py-2.5 text-xs font-bold rounded-xl bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700 transition";
+            });
+
+            document.getElementById('tab-' + tabName).classList.remove('hidden');
+            const activeBtn = document.getElementById('btn-' + tabName);
+            activeBtn.className = "tab-btn px-5 py-2.5 text-xs font-bold rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 transition";
+
+            const btnNuevo = document.getElementById('btn-nuevo-dinamico');
+            if (tabName === 'usuarios') {
+                btnNuevo.innerText = '➕ Añadir Nuevo Usuario';
+            } else if (tabName === 'libros') {
+                btnNuevo.innerText = '➕ Añadir Nuevo Libro';
+            } else if (tabName === 'prestamos') {
+                btnNuevo.innerText = '➕ Registrar Nuevo Préstamo';
+            }
+
+            document.getElementById('tablaBuscador').value = '';
+            filtrarTabla();
+        }
+
+        function abrirModalCrear() {
+            cerrarModales();
+            if (currentTab === 'usuarios') {
+                document.getElementById('tituloModalUsuario').innerText = 'Crear Nuevo Usuario';
+                document.getElementById('u_id').value = '';
+                document.getElementById('u_nombre').value = '';
+                document.getElementById('u_email').value = '';
+                document.getElementById('u_telefono').value = '';
+                document.getElementById('u_password').value = '';
+                document.getElementById('u_password').required = true;
+                document.getElementById('lblPasswordOpcional').classList.add('hidden');
+                document.getElementById('u_rol').value = 'USER';
+                document.getElementById('modalUsuario').classList.remove('hidden');
+            } else if (currentTab === 'libros') {
+                document.getElementById('tituloModalLibro').innerText = 'Añadir Nuevo Libro';
+                document.getElementById('l_id').value = '';
+                document.getElementById('l_titulo').value = '';
+                document.getElementById('l_autor').value = '';
+                document.getElementById('l_linkimagen').value = '';
+                document.getElementById('l_descripcion').value = '';
+                document.getElementById('modalLibro').classList.remove('hidden');
+            } else if (currentTab === 'prestamos') {
+                document.getElementById('modalPrestamo').classList.remove('hidden');
+            }
+        }
+
+        function prepararEdicionUsuario(id, nombre, email, telefono, rol) {
+            cerrarModales();
+            document.getElementById('tituloModalUsuario').innerText = 'Editar Usuario #' + id;
+            document.getElementById('u_id').value = id;
+            document.getElementById('u_nombre').value = nombre || '';
+            document.getElementById('u_email').value = email || '';
+            document.getElementById('u_telefono').value = telefono || '';
+            document.getElementById('u_password').value = '';
+            document.getElementById('u_password').required = false;
+            document.getElementById('lblPasswordOpcional').classList.remove('hidden');
+            document.getElementById('u_rol').value = rol || 'USER';
+            document.getElementById('modalUsuario').classList.remove('hidden');
+        }
+
+        function prepararEdicionLibro(id, titulo, autor, linkimagen, descripcion) {
+            cerrarModales();
+            document.getElementById('tituloModalLibro').innerText = 'Editar Libro #' + id;
+            document.getElementById('l_id').value = id;
+            document.getElementById('l_titulo').value = titulo || '';
+            document.getElementById('l_autor').value = autor || '';
+            document.getElementById('l_linkimagen').value = linkimagen || '';
+            document.getElementById('l_descripcion').value = descripcion || '';
+            document.getElementById('modalLibro').classList.remove('hidden');
+        }
+
+        function prepararEdicionPrestamo(id, fechaDevolucion) {
+            cerrarModales();
+            document.getElementById('tituloModalEditarPrestamo').innerText = 'Modificar Préstamo #' + id;
+            document.getElementById('p_id').value = id;
+            document.getElementById('p_fechaDevolucion').value = fechaDevolucion || '';
+            document.getElementById('modalEditarPrestamo').classList.remove('hidden');
+        }
+
+        function cerrarModales() {
+            document.getElementById('modalUsuario').classList.add('hidden');
+            document.getElementById('modalLibro').classList.add('hidden');
+            document.getElementById('modalPrestamo').classList.add('hidden');
+            document.getElementById('modalEditarPrestamo').classList.add('hidden');
+        }
+
+        function filtrarTabla() {
+            const query = document.getElementById('tablaBuscador').value.toLowerCase();
+            const tablaActiva = document.getElementById('tabla-' + currentTab);
+            if (!tablaActiva) return;
+
+            const filas = tablaActiva.querySelectorAll('tbody tr');
+            filas.forEach(fila => {
+                const texto = fila.innerText.toLowerCase();
+                fila.style.display = texto.includes(query) ? '' : 'none';
+            });
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Historial - Espresso Library</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">
+
+    <!-- Navbar -->
+    <div th:replace="~{fragments/navbar :: navbar}"></div>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+        
+        <div class="border-b border-slate-800 pb-5">
+            <h1 class="text-3xl font-extrabold text-slate-100">Mis Préstamos Activos</h1>
+            <p class="text-slate-400 text-sm mt-1">Consulta tus libros prestados y la fecha límite de devolución</p>
+        </div>
+
+        <!-- Caso 1: NO hay usuario logueado en sesión -->
+        <div th:if="${session.usuarioLogueado == null}" 
+             class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-8 text-center space-y-4 max-w-xl mx-auto my-12 shadow-2xl">
+            <span class="text-4xl">🔒</span>
+            <h3 class="text-xl font-bold text-slate-200">Acceso Restringido</h3>
+            <p class="text-slate-400 text-sm">Debes iniciar sesión para consultar tu lista de préstamos activos.</p>
+            <button onclick="openLoginModal()" 
+                    class="px-5 py-2.5 bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold rounded-xl text-xs transition shadow-lg shadow-teal-500/10">
+                Iniciar Sesión
+            </button>
+        </div>
+
+        <!-- Caso 2: Usuario logueado pero SIN préstamos activos -->
+        <div th:if="${session.usuarioLogueado != null and #lists.isEmpty(prestamos)}" 
+             class="bg-slate-800/40 border border-slate-800 rounded-2xl p-12 text-center space-y-3">
+            <span class="text-4xl">📖</span>
+            <h3 class="text-lg font-bold text-slate-300">No tienes préstamos activos</h3>
+            <p class="text-slate-500 text-xs">Explora el catálogo y solicita tu primer libro.</p>
+            <a th:href="@{/prestamos}" 
+               class="inline-block mt-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-teal-400 border border-teal-500/30 font-semibold rounded-xl text-xs transition">
+                Solicitar Préstamo
+            </a>
+        </div>
+
+        <!-- Caso 3: CON préstamos activos -->
+        <div th:if="${session.usuarioLogueado != null and not #lists.isEmpty(prestamos)}" 
+             class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            
+            <div th:each="prestamo : ${prestamos}" 
+                 th:classappend="${prestamo.fechaDevolucion.isBefore(T(java.time.LocalDate).now())} ? 'bg-rose-500/10 border-rose-500/40' : 'bg-slate-800/80 border-slate-700/60'"
+                 class="border rounded-2xl p-6 flex flex-col justify-between space-y-4 shadow-xl transition">
+                
+                <div class="space-y-3">
+                    <!-- Badge de Estado -->
+                    <div class="flex justify-between items-center">
+                        <span th:if="${prestamo.fechaDevolucion.isBefore(T(java.time.LocalDate).now())}" 
+                              class="px-2.5 py-1 text-xs font-bold rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 animate-pulse">
+                              ⚠️ Plazo Vencido
+                        </span>
+                        <span th:if="${!prestamo.fechaDevolucion.isBefore(T(java.time.LocalDate).now())}" 
+                              class="px-2.5 py-1 text-xs font-semibold rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/20">
+                              ● En Plazo
+                        </span>
+                    </div>
+
+                    <!-- Datos Libro -->
+                    <div>
+                        <h3 class="font-bold text-xl text-slate-100" th:text="${prestamo.libro.titulo}">Título del Libro</h3>
+                        <p class="text-sm text-slate-400" th:text="${'Autor: ' + prestamo.libro.autor}">Autor del Libro</p>
+                    </div>
+
+                    <!-- Fechas -->
+                    <div class="text-xs space-y-1 pt-2 border-t border-slate-700/50 text-slate-300">
+                        <p><strong>Fecha Inicio:</strong> <span th:text="${prestamo.fechaPrestamo}">2026-10-01</span></p>
+                        <p><strong>Fecha Límite:</strong> <span th:text="${prestamo.fechaDevolucion}">2026-10-15</span></p>
+                    </div>
+                </div>
+
+                <!-- Botón de Devolución -->
+                <form th:action="@{/prestamos/devolver}" method="POST">
+                    <input type="hidden" name="prestamoId" th:value="${prestamo.id}"/>
+                    <button type="submit" class="w-full py-2 bg-slate-700 hover:bg-slate-600 text-xs font-semibold rounded-xl border border-slate-600 transition text-slate-200">
+                        Realizar Devolución
+                    </button>
+                </form>
+            </div>
+        </div>
+
+    </main>
+</body>
+</html>
