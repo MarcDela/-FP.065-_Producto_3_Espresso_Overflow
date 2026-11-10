@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
 <header th:fragment="navbar" class="bg-slate-800/90 backdrop-blur border-b border-slate-700/80 sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         
@@ -14,11 +16,11 @@
         <!-- Menú de Navegación -->
         <nav class="flex items-center gap-6 text-sm font-medium">
             <a th:href="@{/}" class="text-slate-300 hover:text-teal-400 transition-colors">Home</a>
-            <a th:href="@{/prestamos}" class="text-slate-300 hover:text-teal-400 transition-colors">Solicitar Préstamo</a>
-            <a th:href="@{/historial}" class="text-slate-300 hover:text-teal-400 transition-colors">Mis Prestamos</a>
+            <a sec:authorize="hasRole('USER')" th:href="@{/prestamos}" class="text-slate-300 hover:text-teal-400 transition-colors">Solicitar Préstamo</a>
+            <a sec:authorize="hasRole('USER')" th:href="@{/historial}" class="text-slate-300 hover:text-teal-400 transition-colors">Mis Prestamos</a>
             
             <!-- Visibilidad según ROL ADMIN -->
-            <a th:if="${session.usuarioLogueado != null and session.usuarioLogueado.rol == 'ADMIN'}" 
+            <a sec:authorize="hasRole('ADMIN')"
                th:href="@{/gestion}" 
                class="px-3 py-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition">
                 ⚙️ Gestión
@@ -27,27 +29,36 @@
             <!-- Login / Estado de Sesión -->
             <div class="pl-4 border-l border-slate-700 flex items-center gap-3">
                 <!-- Si hay usuario logueado en sesión -->
-                <div th:if="${session.usuarioLogueado != null}" class="flex items-center gap-3">
+                <div sec:authorize="isAuthenticated()" class="flex items-center gap-3">
                     <span class="text-xs text-slate-400">
-                        Hola, <strong class="text-slate-200" th:text="${session.usuarioLogueado.nombre}">Usuario</strong>
+                        Hola, <strong class="text-slate-200" sec:authentication="name">Usuario</strong>
                     </span>
-                    <a th:href="@{/cerrar-sesion}" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition">
-                        Cerrar Sesión
-                    </a>
+                    <!-- Logout enviado por POST obligatorio para protección CSRF -->
+                    <form th:action="@{/logout}" method="POST" class="inline">
+                        <button type="submit" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition">
+                            Cerrar Sesión
+                        </button>
+                    </form>
                 </div>
 
                 <!-- Si NO hay usuario logueado en sesión -->
-                <button th:if="${session.usuarioLogueado == null}" 
+                <button sec:authorize="isAnonymous()" 
                         type="button" 
                         onclick="openLoginModal()" 
                         class="px-4 py-1.5 text-xs font-semibold rounded-lg bg-teal-500 text-slate-950 hover:bg-teal-400 transition">
                     Iniciar Sesión
                 </button>
+                <button sec:authorize="isAnonymous()" 
+                        type="button" 
+                        onclick="openRegisterModal()" 
+                        class="px-4 py-1.5 text-xs font-semibold rounded-lg bg-teal-500 text-slate-950 hover:bg-teal-400 transition">
+                    Registrarse
+                </button>
             </div>
         </nav>
     </div>
 
-    <!-- Modal Pop-up de Login Centrado -->
+    <!-- Modal Pop-up de Login -->
     <div id="loginModal" class="fixed inset-0 w-screen h-screen bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 hidden z-[100]">
         <div class="bg-slate-800 border border-slate-700/80 rounded-2xl max-w-sm w-full p-6 space-y-5 shadow-2xl relative">
             
@@ -59,10 +70,15 @@
             </div>
 
             <!-- Formulario enviando a /login -->
-            <form th:action="@{/iniciar-sesion}" method="POST" class="space-y-4">
+            <form th:action="@{/login}" method="POST" class="space-y-4">
                 <div>
+                    <!-- Mensaje de error si la autenticación falla -->
+                    <div th:if="${param.error}" class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+                        <span>⚠️</span>
+                        <span>Correo o contraseña incorrectos. Por favor, inténtalo de nuevo.</span>
+                    </div>
                     <label class="block text-xs font-semibold text-slate-300 mb-1.5">Correo Electrónico</label>
-                    <input type="email" name="email" required placeholder="admin@espressolibrary.com" 
+                    <input type="email" name="username" required placeholder="admin@espressolibrary.com" 
                            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-slate-100 focus:outline-none focus:border-teal-400 transition placeholder-slate-500">
                 </div>
 
@@ -78,11 +94,65 @@
             </form>
         </div>
     </div>
+    <!-- Modal Pop-up de Registro -->
+    <div id="registerModal" class="fixed inset-0 w-screen h-screen bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 hidden z-[100]">
+        <div class="bg-slate-800 border border-slate-700/80 rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl relative">
+        
+            <div class="flex justify-between items-center border-b border-slate-700/80 pb-3">
+                <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+                    📝 <span>Crear Cuenta</span>
+                </h3>
+                <button type="button" onclick="closeRegisterModal()" class="text-slate-400 hover:text-slate-100 text-sm">✕</button>
+            </div>
 
-    <!-- Script de control Modal -->
+            <form th:action="@{/registro}" method="POST" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Nombre Completo</label>
+                    <input type="text" name="nombre" required placeholder="Juan Pérez" 
+                       class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-teal-400 transition placeholder-slate-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Correo Electrónico</label>
+                    <input type="email" name="email" required placeholder="usuario@email.com" 
+                       class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-teal-400 transition placeholder-slate-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Teléfono</label>
+                    <input type="text" name="telefono" placeholder="600112233" 
+                       class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-teal-400 transition placeholder-slate-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Contraseña</label>
+                    <input type="password" name="password" required placeholder="••••••••" 
+                       class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-teal-400 transition placeholder-slate-500">
+                </div>
+
+                <button type="submit" class="w-full bg-gradient-to-r from-teal-500 to-sky-500 hover:from-teal-400 hover:to-sky-400 text-slate-950 font-bold py-2.5 rounded-xl text-sm transition shadow-lg shadow-teal-500/10 mt-2">
+                    Registrarse
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts de control Modal -->
     <script>
         function openLoginModal() { document.getElementById('loginModal').classList.remove('hidden'); }
         function closeLoginModal() { document.getElementById('loginModal').classList.add('hidden'); }
+
+        function openRegisterModal() { document.getElementById('registerModal').classList.remove('hidden'); }
+        function closeRegisterModal() { document.getElementById('registerModal').classList.add('hidden'); }
+        
+        // Reapertura automática del modal en caso de que el login falle
+        document.addEventListener("DOMContentLoaded", function () {
+            const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.has('error')) {
+                    openLoginModal();
+                }
+            }
+        );
     </script>
 </header>
 </html>

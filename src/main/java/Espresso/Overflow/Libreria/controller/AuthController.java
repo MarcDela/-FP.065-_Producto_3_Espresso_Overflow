@@ -4,9 +4,12 @@ import Espresso.Overflow.Libreria.model.Usuario;
 import Espresso.Overflow.Libreria.repository.UsuarioRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
+
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
@@ -16,9 +19,26 @@ import java.util.Optional;
 public class AuthController {
 
     private final UsuarioRepository usuarioRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public AuthController(UsuarioRepository usuarioRepository) {
+    public AuthController(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    @PostMapping("/registro")
+    public String registrarUsuario(@ModelAttribute Usuario usuario) {
+        // Encriptar la contraseña introducida por el usuario
+        usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
+        
+        if (usuario.getRol() == null || usuario.getRol().isEmpty()) {
+            usuario.setRol("USER");
+        }
+
+        usuarioRepository.save(usuario);
+
+        // Redirigir al home o abrir el login directamente
+        return "redirect:/?registrado=true";
     }
 
     @PostMapping("/iniciar-sesion")

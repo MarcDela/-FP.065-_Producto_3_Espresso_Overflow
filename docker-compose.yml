@@ -3,7 +3,7 @@ version: '3.8'
 services:
   app:
     build: .
-    image: app_libreria:v2.0
+    image: app_libreria:v2.3
     container_name: app_libreria
     restart: always
     env_file:
