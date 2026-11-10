@@ -23,7 +23,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable()) // Desactivado temporalmente si trabajamos sin token CSRF
             .authorizeHttpRequests(auth -> auth
                 // Recursos estáticos y páginas públicas
-                .requestMatchers("/", "/login", "/registro", "/css/**", "/js/**", "/images/**").permitAll()
+                .requestMatchers("/", "/test", "/login", "/registro", "/css/**", "/js/**", "/images/**").permitAll()
                 
                 // Rutas exclusivas para administradores
                 .requestMatchers("/admin/**").hasRole("ADMIN")

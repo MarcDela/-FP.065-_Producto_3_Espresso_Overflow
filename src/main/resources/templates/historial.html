@@ -18,32 +18,20 @@
             <p class="text-slate-400 text-sm mt-1">Consulta tus libros prestados y la fecha límite de devolución</p>
         </div>
 
-        <!-- Caso 1: NO hay usuario logueado en sesión -->
-        <div th:if="${session.usuarioLogueado == null}" 
-             class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-8 text-center space-y-4 max-w-xl mx-auto my-12 shadow-2xl">
-            <span class="text-4xl">🔒</span>
-            <h3 class="text-xl font-bold text-slate-200">Acceso Restringido</h3>
-            <p class="text-slate-400 text-sm">Debes iniciar sesión para consultar tu lista de préstamos activos.</p>
-            <button onclick="openLoginModal()" 
-                    class="px-5 py-2.5 bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold rounded-xl text-xs transition shadow-lg shadow-teal-500/10">
-                Iniciar Sesión
-            </button>
-        </div>
-
-        <!-- Caso 2: Usuario logueado pero SIN préstamos activos -->
-        <div th:if="${session.usuarioLogueado != null and #lists.isEmpty(prestamos)}" 
+        <!-- Caso 1: Usuario logueado pero SIN préstamos activos -->
+        <div th:if="${#lists.isEmpty(prestamos)}" 
              class="bg-slate-800/40 border border-slate-800 rounded-2xl p-12 text-center space-y-3">
             <span class="text-4xl">📖</span>
             <h3 class="text-lg font-bold text-slate-300">No tienes préstamos activos</h3>
             <p class="text-slate-500 text-xs">Explora el catálogo y solicita tu primer libro.</p>
-            <a th:href="@{/prestamos}" 
+            <a th:href="@{/user/prestamos}" 
                class="inline-block mt-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-teal-400 border border-teal-500/30 font-semibold rounded-xl text-xs transition">
                 Solicitar Préstamo
             </a>
         </div>
 
-        <!-- Caso 3: CON préstamos activos -->
-        <div th:if="${session.usuarioLogueado != null and not #lists.isEmpty(prestamos)}" 
+        <!-- Caso 2: CON préstamos activos -->
+        <div th:if="${not #lists.isEmpty(prestamos)}" 
              class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             
             <div th:each="prestamo : ${prestamos}" 
@@ -77,7 +65,7 @@
                 </div>
 
                 <!-- Botón de Devolución -->
-                <form th:action="@{/prestamos/devolver}" method="POST">
+                <form th:action="@{/user/devolver}" method="POST">
                     <input type="hidden" name="prestamoId" th:value="${prestamo.id}"/>
                     <button type="submit" class="w-full py-2 bg-slate-700 hover:bg-slate-600 text-xs font-semibold rounded-xl border border-slate-600 transition text-slate-200">
                         Realizar Devolución
