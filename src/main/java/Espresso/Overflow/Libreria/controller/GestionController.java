@@ -7,7 +7,7 @@ import Espresso.Overflow.Libreria.repository.LibroRepository;
 import Espresso.Overflow.Libreria.repository.PrestamoRepository;
 import Espresso.Overflow.Libreria.repository.UsuarioRepository;
 
-import jakarta.servlet.http.HttpSession;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -16,29 +16,27 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 @Controller
-@RequestMapping("/gestion")
+@RequestMapping("/admin")
 public class GestionController {
 
     private final UsuarioRepository usuarioRepository;
     private final LibroRepository libroRepository;
     private final PrestamoRepository prestamoRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public GestionController(UsuarioRepository usuarioRepository,
             LibroRepository libroRepository,
-            PrestamoRepository prestamoRepository) {
+            PrestamoRepository prestamoRepository,
+            PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
         this.libroRepository = libroRepository;
         this.prestamoRepository = prestamoRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
-    // 1. Mostrar Panel de Gestión
+    // 1. Mostrar Panel de Gestión (Spring Security ya garantiza que solo entra ROLE_ADMIN)
     @GetMapping
-    public String verPanelGestion(Model model, HttpSession session) {
-        Usuario usuarioLogueado = (Usuario) session.getAttribute("usuarioLogueado");
-        if (usuarioLogueado == null || !"ADMIN".equalsIgnoreCase(usuarioLogueado.getRol())) {
-            return "gestion"; // Muestra la vista gestion.html con el banner "Acceso Restringido"
-        }
-
+    public String verPanelGestion(Model model) {
         model.addAttribute("listaUsuarios", usuarioRepository.findAll());
         model.addAttribute("listaLibros", libroRepository.findAll());
         model.addAttribute("listaPrestamos", prestamoRepository.findAll());
@@ -46,82 +44,77 @@ public class GestionController {
         return "gestion";
     }
 
-    // 2. Guardar o Editar Usuario
+    // 2. Guardar o Editar Usuario (cifrando la contraseña si es nueva o modificada)
     @PostMapping("/guardar-usuario")
-    public String guardarUsuario(@ModelAttribute Usuario usuario, HttpSession session) {
-        Usuario usuarioLogueado = (Usuario) session.getAttribute("usuarioLogueado");
-        if (usuarioLogueado != null && "ADMIN".equalsIgnoreCase(usuarioLogueado.getRol())) {
-
-            // Si es una edición y la contraseña viene vacía, conservar la clave actual
-            if (usuario.getId() != null) {
-                Optional<Usuario> uExistente = usuarioRepository.findById(usuario.getId());
-                if (uExistente.isPresent()
-                        && (usuario.getPassword() == null || usuario.getPassword().trim().isEmpty())) {
+    public String guardarUsuario(@ModelAttribute Usuario usuario) {
+        if (usuario.getId() != null) {
+            Optional<Usuario> uExistente = usuarioRepository.findById(usuario.getId());
+            if (uExistente.isPresent()) {
+                if (usuario.getPassword() == null || usuario.getPassword().trim().isEmpty()) {
+                    // Si viene vacía al editar, conservar la contraseña cifrada actual
                     usuario.setPassword(uExistente.get().getPassword());
+                } else {
+                    // Si el admin escribió una nueva contraseña, cifrarla con BCrypt
+                    usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
                 }
             }
-
-            usuarioRepository.save(usuario);
+        } else {
+            // Usuario nuevo creado desde Gestión: cifrar su contraseña
+            usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
         }
-        return "redirect:/gestion";
+
+        usuarioRepository.save(usuario);
+        return "redirect:/admin";
     }
 
     // 3. Guardar o Editar Libro
     @PostMapping("/guardar-libro")
-    public String guardarLibro(@ModelAttribute Libro libro, HttpSession session) {
-        Usuario usuarioLogueado = (Usuario) session.getAttribute("usuarioLogueado");
-        if (usuarioLogueado != null && "ADMIN".equalsIgnoreCase(usuarioLogueado.getRol())) {
-
-            if (libro.getId() == null) {
-                // Libro nuevo: disponible por defecto
-                libro.setDisponible(true);
-            } else {
-                // Editar libro: conservar su estado de disponibilidad actual
-                Optional<Libro> lExistente = libroRepository.findById(libro.getId());
-                lExistente.ifPresent(value -> libro.setDisponible(value.getDisponible()));
-            }
-
-            libroRepository.save(libro);
+    public String guardarLibro(@ModelAttribute Libro libro) {
+        if (libro.getId() == null) {
+            // Libro nuevo: disponible por defecto
+            libro.setDisponible(true);
+        } else {
+            // Editar libro: conservar su estado de disponibilidad actual
+            Optional<Libro> lExistente = libroRepository.findById(libro.getId());
+            lExistente.ifPresent(value -> libro.setDisponible(value.getDisponible()));
         }
-        return "redirect:/gestion";
+
+        libroRepository.save(libro);
+        return "redirect:/admin";
     }
 
-    // Registrar Nuevo Préstamo (Selección manual de Usuario, Libro y Semanas)
+    // 4. Registrar Nuevo Préstamo (Selección manual de Usuario, Libro y Semanas)
     @PostMapping("/nuevo-prestamo")
     public String nuevoPrestamo(@RequestParam Long usuarioId,
             @RequestParam Long libroId,
-            @RequestParam(defaultValue = "2") Integer semanas,
-            HttpSession session) {
-        Usuario usuarioLogueado = (Usuario) session.getAttribute("usuarioLogueado");
-        if (usuarioLogueado != null && "ADMIN".equalsIgnoreCase(usuarioLogueado.getRol())) {
+            @RequestParam(defaultValue = "2") Integer semanas) {
 
-            Optional<Usuario> usuarioOpt = usuarioRepository.findById(usuarioId);
-            Optional<Libro> libroOpt = libroRepository.findById(libroId);
+        Optional<Usuario> usuarioOpt = usuarioRepository.findById(usuarioId);
+        Optional<Libro> libroOpt = libroRepository.findById(libroId);
 
-            if (usuarioOpt.isPresent() && libroOpt.isPresent()) {
-                Libro libro = libroOpt.get();
-                Usuario usuario = usuarioOpt.get();
+        if (usuarioOpt.isPresent() && libroOpt.isPresent()) {
+            Libro libro = libroOpt.get();
+            Usuario usuario = usuarioOpt.get();
 
-                if (libro.getDisponible()) {
-                    // Validar que las semanas estén entre 1 y 4
-                    int semanasValidadas = Math.min(Math.max(semanas, 1), 4);
+            if (libro.getDisponible()) {
+                // Validar que las semanas estén entre 1 y 4
+                int semanasValidadas = Math.min(Math.max(semanas, 1), 4);
 
-                    // Crear entidad préstamo
-                    Prestamo prestamo = new Prestamo();
-                    prestamo.setUsuario(usuario);
-                    prestamo.setLibro(libro);
-                    prestamo.setFechaPrestamo(LocalDate.now());
-                    prestamo.setFechaDevolucion(LocalDate.now().plusWeeks(semanasValidadas));
+                // Crear entidad préstamo
+                Prestamo prestamo = new Prestamo();
+                prestamo.setUsuario(usuario);
+                prestamo.setLibro(libro);
+                prestamo.setFechaPrestamo(LocalDate.now());
+                prestamo.setFechaDevolucion(LocalDate.now().plusWeeks(semanasValidadas));
 
-                    // Marcar libro como no disponible
-                    libro.setDisponible(false);
+                // Marcar libro como no disponible
+                libro.setDisponible(false);
 
-                    libroRepository.save(libro);
-                    prestamoRepository.save(prestamo);
-                }
+                libroRepository.save(libro);
+                prestamoRepository.save(prestamo);
             }
         }
-        return "redirect:/gestion";
+        return "redirect:/admin";
     }
 
     // 5. Editar Fecha Límite de Préstamo
@@ -133,7 +126,7 @@ public class GestionController {
             prestamo.setFechaDevolucion(LocalDate.parse(fechaDevolucion));
             prestamoRepository.save(prestamo);
         }
-        return "redirect:/gestion";
+        return "redirect:/admin";
     }
 
     // 6. Finalizar / Eliminar Préstamo (Liberar Libro)
@@ -149,26 +142,20 @@ public class GestionController {
             }
             prestamoRepository.deleteById(id);
         }
-        return "redirect:/gestion";
+        return "redirect:/admin";
     }
 
     // 7. Eliminar Usuario
     @GetMapping("/eliminar-usuario/{id}")
-    public String eliminarUsuario(@PathVariable Long id, HttpSession session) {
-        Usuario usuarioLogueado = (Usuario) session.getAttribute("usuarioLogueado");
-        if (usuarioLogueado != null && "ADMIN".equalsIgnoreCase(usuarioLogueado.getRol())) {
-            usuarioRepository.deleteById(id);
-        }
-        return "redirect:/gestion";
+    public String eliminarUsuario(@PathVariable Long id) {
+        usuarioRepository.deleteById(id);
+        return "redirect:/admin";
     }
 
     // 8. Eliminar Libro
     @GetMapping("/eliminar-libro/{id}")
-    public String eliminarLibro(@PathVariable Long id, HttpSession session) {
-        Usuario usuarioLogueado = (Usuario) session.getAttribute("usuarioLogueado");
-        if (usuarioLogueado != null && "ADMIN".equalsIgnoreCase(usuarioLogueado.getRol())) {
-            libroRepository.deleteById(id);
-        }
-        return "redirect:/gestion";
+    public String eliminarLibro(@PathVariable Long id) {
+        libroRepository.deleteById(id);
+        return "redirect:/admin";
     }
 }

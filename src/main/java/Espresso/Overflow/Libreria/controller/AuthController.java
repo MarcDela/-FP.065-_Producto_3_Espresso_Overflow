@@ -2,50 +2,39 @@ package Espresso.Overflow.Libreria.controller;
 
 import Espresso.Overflow.Libreria.model.Usuario;
 import Espresso.Overflow.Libreria.repository.UsuarioRepository;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-
-import java.util.Optional;
 
 @Controller
 public class AuthController {
 
     private final UsuarioRepository usuarioRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public AuthController(UsuarioRepository usuarioRepository) {
+    public AuthController(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
-    @PostMapping("/iniciar-sesion")
-    public String login(@RequestParam("email") String email,
-                        @RequestParam("password") String password,
-                        HttpSession session,
-                        HttpServletRequest request,
-                        RedirectAttributes redirectAttributes) {
-
-        Optional<Usuario> usuarioOpt = usuarioRepository.findByEmailAndPassword(email, password);
-
-        if (usuarioOpt.isPresent()) {
-            // Guardar usuario en la sesión HTTP
-            session.setAttribute("usuarioLogueado", usuarioOpt.get());
-        } else {
-            // Enviar mensaje de error
-            redirectAttributes.addFlashAttribute("errorLogin", "Email o contraseña incorrectos");
+    @PostMapping("/registro")
+    public String registrarUsuario(@ModelAttribute Usuario usuario,
+                                   RedirectAttributes redirectAttributes) {
+        // 1. Comprobar si el email ya existe en la tabla usuarios
+        if (usuarioRepository.findByEmail(usuario.getEmail()).isPresent()) {
+            redirectAttributes.addFlashAttribute("errorRegistro", "Ese correo electrónico ya está registrado.");
+            return "redirect:/";
         }
 
-        // Redirigir de vuelta a la página previa
-        String referer = request.getHeader("Referer");
-        return "redirect:" + (referer != null ? referer : "/");
-    }
+        // 2. Asignar rol por defecto y cifrar contraseña antes de guardar
+        usuario.setRol("USER");
+        usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
+        usuarioRepository.save(usuario);
 
-    @GetMapping("/cerrar-sesion")
-    public String logout(HttpSession session) {
-        session.invalidate(); // Destruir la sesión
+        // 3. Redirigir a inicio; el script del navbar abrirá el modal de login con este mensaje
+        redirectAttributes.addFlashAttribute("registroExitoso", "Cuenta creada correctamente. Ya puedes iniciar sesión.");
         return "redirect:/";
     }
 }

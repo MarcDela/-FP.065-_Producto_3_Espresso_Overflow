@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -19,7 +19,7 @@
         </div>
 
         <!-- Alerta si NO hay sesión iniciada -->
-        <div th:if="${session.usuarioLogueado == null}" 
+        <div sec:authorize="isAnonymous()" 
              class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-center justify-between gap-4 text-amber-300">
             <div class="flex items-center gap-3 text-sm">
                 <span class="text-xl">⚠️</span>
@@ -39,7 +39,7 @@
         </div>
 
         <!-- Formulario de Préstamo -->
-        <form th:action="@{/prestamos/guardar}" method="POST" class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
+       <form th:action="@{/user/prestamos/guardar}" method="POST" class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
             
             <!-- Libro Seleccionado -->
             <div class="space-y-2">
@@ -76,8 +76,8 @@
                 </select>
             </div>
 
-            <!-- Botón de Confirmación (Condicionado por sesión) -->
-            <button th:if="${session.usuarioLogueado != null}" 
+            <!-- Botón de Confirmación (Solo usuarios autenticados) -->
+            <button sec:authorize="isAuthenticated()" 
                     type="submit" 
                     class="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-teal-500 to-sky-500 hover:from-teal-400 hover:to-sky-400 text-slate-950 font-bold shadow-lg shadow-teal-500/10 transition">
                 Confirmar Solicitud de Préstamo
