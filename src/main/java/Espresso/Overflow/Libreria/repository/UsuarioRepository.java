@@ -7,6 +7,6 @@ import java.util.Optional;
 
 public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     
-    // Buscar usuario por email y contraseña (para autenticación)
-    Optional<Usuario> findByEmailAndPassword(String email, String password);
+    // BComo el registro de la contraseña estña encriptada se utiliza el mçetodo findByEmail de Spring Security
+    Optional<Usuario> findByEmail(String email);
 }

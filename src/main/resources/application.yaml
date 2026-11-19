@@ -2,18 +2,15 @@ server:
   port: ${SERVER_PORT:8082}
 
 spring:
+  config:
+    import: optional:file:.env[.properties]
   datasource:
-    url: jdbc:mysql://${DB_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-    username: ${MYSQL_USER}
-    password: ${MYSQL_PASSWORD}
+    url: jdbc:mysql://${DB_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:libreria}?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:rootpassword}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
-
-  security:
-    user:
-      name: ${SECURITY_USER_NAME}
-      password: ${SECURITY_USER_PASSWORD}

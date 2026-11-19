@@ -1,11 +1,11 @@
 package Espresso.Overflow.Libreria.controller;
 
+import Espresso.Overflow.Libreria.config.SesionActual;
 import Espresso.Overflow.Libreria.model.Libro;
 import Espresso.Overflow.Libreria.model.Prestamo;
 import Espresso.Overflow.Libreria.model.Usuario;
 import Espresso.Overflow.Libreria.repository.LibroRepository;
 import Espresso.Overflow.Libreria.repository.PrestamoRepository;
-import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,8 +27,8 @@ public class HistorialController {
     }
 
     @GetMapping("/historial")
-    public String mostrarHistorial(HttpSession session, Model model) {
-        Usuario usuarioActivo = (Usuario) session.getAttribute("usuarioLogueado");
+    public String mostrarHistorial(Model model) {
+        Usuario usuarioActivo = SesionActual.usuario();
 
         if (usuarioActivo != null) {
             List<Prestamo> prestamosUsuario = prestamoRepository.findByUsuarioId(usuarioActivo.getId());
@@ -42,8 +42,8 @@ public class HistorialController {
 
     // --- Método para procesar la devolución ---
     @PostMapping("/prestamos/devolver")
-    public String devolverPrestamo(@RequestParam("prestamoId") Long prestamoId, HttpSession session) {
-        Usuario usuarioActivo = (Usuario) session.getAttribute("usuarioLogueado");
+    public String devolverPrestamo(@RequestParam("prestamoId") Long prestamoId) {
+        Usuario usuarioActivo = SesionActual.usuario();
 
         // Verificamos que haya usuario en sesión por seguridad
         if (usuarioActivo != null) {

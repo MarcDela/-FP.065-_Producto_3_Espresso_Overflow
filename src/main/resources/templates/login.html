@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar sesión - Espresso Library</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">
+
+<div th:replace="~{fragments/navbar :: navbar}"></div>
+
+<main class="max-w-md mx-auto px-4 py-16">
+    <div class="bg-slate-800 border border-slate-700/80 rounded-2xl p-6 sm:p-8 space-y-5 shadow-2xl">
+        <div class="space-y-1">
+            <h1 class="text-2xl font-bold text-slate-100">Iniciar sesión</h1>
+            <p class="text-sm text-slate-400">Entra con el email y la contraseña de tu cuenta.</p>
+        </div>
+
+        <div th:if="${param.error}"
+             class="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 text-rose-300 text-sm">
+            Email o contraseña incorrectos.
+        </div>
+        <div th:if="${param.logout}"
+             class="bg-slate-700/60 border border-slate-600 rounded-xl p-3 text-slate-300 text-sm">
+            Has cerrado la sesión.
+        </div>
+        <div th:if="${param.registro}"
+             class="bg-teal-500/10 border border-teal-500/30 rounded-xl p-3 text-teal-300 text-sm">
+            Cuenta creada. Ya puedes iniciar sesión.
+        </div>
+
+        <form th:action="@{/login}" method="post" class="space-y-4">
+            <div>
+                <label for="email" class="block text-xs font-semibold text-slate-300 mb-1.5">Correo electrónico</label>
+                <input id="email" type="email" name="email" required autofocus
+                       placeholder="tu@email.com"
+                       class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-slate-100 focus:outline-none focus:border-teal-400 transition placeholder-slate-500">
+            </div>
+            <div>
+                <label for="password" class="block text-xs font-semibold text-slate-300 mb-1.5">Contraseña</label>
+                <input id="password" type="password" name="password" required
+                       placeholder="••••••••"
+                       class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-slate-100 focus:outline-none focus:border-teal-400 transition placeholder-slate-500">
+            </div>
+            <button type="submit"
+                    class="w-full bg-gradient-to-r from-teal-500 to-sky-500 hover:from-teal-400 hover:to-sky-400 text-slate-950 font-bold py-2.5 rounded-xl text-sm transition shadow-lg shadow-teal-500/10">
+                Entrar
+            </button>
+        </form>
+
+        <p class="text-sm text-slate-400 text-center">
+            ¿No tienes cuenta?
+            <a th:href="@{/registro}" class="text-teal-400 hover:text-teal-300 font-semibold">Regístrate</a>
+        </p>
+    </div>
+</main>
+</body>
+</html>

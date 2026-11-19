@@ -1,5 +1,6 @@
 package Espresso.Overflow.Libreria.controller;
 
+import Espresso.Overflow.Libreria.config.SesionActual;
 import Espresso.Overflow.Libreria.model.Libro;
 import Espresso.Overflow.Libreria.model.Prestamo;
 import Espresso.Overflow.Libreria.model.Usuario;
@@ -7,7 +8,7 @@ import Espresso.Overflow.Libreria.repository.LibroRepository;
 import Espresso.Overflow.Libreria.repository.PrestamoRepository;
 import Espresso.Overflow.Libreria.repository.UsuarioRepository;
 
-import jakarta.servlet.http.HttpSession;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -22,20 +23,23 @@ public class GestionController {
     private final UsuarioRepository usuarioRepository;
     private final LibroRepository libroRepository;
     private final PrestamoRepository prestamoRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public GestionController(UsuarioRepository usuarioRepository,
-            LibroRepository libroRepository,
-            PrestamoRepository prestamoRepository) {
+                             LibroRepository libroRepository,
+                             PrestamoRepository prestamoRepository,
+                             PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
         this.libroRepository = libroRepository;
         this.prestamoRepository = prestamoRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     // 1. Mostrar Panel de Gestión
     @GetMapping
-    public String verPanelGestion(Model model, HttpSession session) {
-        Usuario usuarioLogueado = (Usuario) session.getAttribute("usuarioLogueado");
-        if (usuarioLogueado == null || !"ADMIN".equalsIgnoreCase(usuarioLogueado.getRol())) {
+    public String verPanelGestion(Model model) {
+        Usuario usuarioLogueado = SesionActual.usuario();
+        if (usuarioLogueado == null || !usuarioLogueado.isAdmin()) {
             return "gestion"; // Muestra la vista gestion.html con el banner "Acceso Restringido"
         }
 
@@ -48,19 +52,30 @@ public class GestionController {
 
     // 2. Guardar o Editar Usuario
     @PostMapping("/guardar-usuario")
-    public String guardarUsuario(@ModelAttribute Usuario usuario, HttpSession session) {
-        Usuario usuarioLogueado = (Usuario) session.getAttribute("usuarioLogueado");
-        if (usuarioLogueado != null && "ADMIN".equalsIgnoreCase(usuarioLogueado.getRol())) {
+    public String guardarUsuario(@ModelAttribute Usuario usuario) {
+        Usuario usuarioLogueado = SesionActual.usuario();
+        if (usuarioLogueado != null && usuarioLogueado.isAdmin()) {
 
-            // Si es una edición y la contraseña viene vacía, conservar la clave actual
             if (usuario.getId() != null) {
                 Optional<Usuario> uExistente = usuarioRepository.findById(usuario.getId());
-                if (uExistente.isPresent()
-                        && (usuario.getPassword() == null || usuario.getPassword().trim().isEmpty())) {
-                    usuario.setPassword(uExistente.get().getPassword());
+                if (uExistente.isPresent()) {
+                    Usuario existente = uExistente.get();
+                    if (usuario.getPassword() == null || usuario.getPassword().isBlank()) {
+                        usuario.setPassword(existente.getPassword());
+                    } else {
+                        usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
+                    }
+                    usuario.setApellidos(existente.getApellidos());
+                    usuario.setActivo(existente.getActivo());
+                    usuario.setFechaRegistro(existente.getFechaRegistro());
                 }
+            } else {
+                usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
+                usuario.setActivo(true);
+                usuario.setFechaRegistro(LocalDate.now());
             }
 
+            usuario.setRol(Usuario.normalizarRol(usuario.getRol()));
             usuarioRepository.save(usuario);
         }
         return "redirect:/gestion";
@@ -68,9 +83,9 @@ public class GestionController {
 
     // 3. Guardar o Editar Libro
     @PostMapping("/guardar-libro")
-    public String guardarLibro(@ModelAttribute Libro libro, HttpSession session) {
-        Usuario usuarioLogueado = (Usuario) session.getAttribute("usuarioLogueado");
-        if (usuarioLogueado != null && "ADMIN".equalsIgnoreCase(usuarioLogueado.getRol())) {
+    public String guardarLibro(@ModelAttribute Libro libro) {
+        Usuario usuarioLogueado = SesionActual.usuario();
+        if (usuarioLogueado != null && usuarioLogueado.isAdmin()) {
 
             if (libro.getId() == null) {
                 // Libro nuevo: disponible por defecto
@@ -89,11 +104,10 @@ public class GestionController {
     // Registrar Nuevo Préstamo (Selección manual de Usuario, Libro y Semanas)
     @PostMapping("/nuevo-prestamo")
     public String nuevoPrestamo(@RequestParam Long usuarioId,
-            @RequestParam Long libroId,
-            @RequestParam(defaultValue = "2") Integer semanas,
-            HttpSession session) {
-        Usuario usuarioLogueado = (Usuario) session.getAttribute("usuarioLogueado");
-        if (usuarioLogueado != null && "ADMIN".equalsIgnoreCase(usuarioLogueado.getRol())) {
+                                @RequestParam Long libroId,
+                                @RequestParam(defaultValue = "2") Integer semanas) {
+        Usuario usuarioLogueado = SesionActual.usuario();
+        if (usuarioLogueado != null && usuarioLogueado.isAdmin()) {
 
             Optional<Usuario> usuarioOpt = usuarioRepository.findById(usuarioId);
             Optional<Libro> libroOpt = libroRepository.findById(libroId);
@@ -127,6 +141,10 @@ public class GestionController {
     // 5. Editar Fecha Límite de Préstamo
     @PostMapping("/editar-prestamo")
     public String editarPrestamo(@RequestParam Long id, @RequestParam String fechaDevolucion) {
+        Usuario usuarioLogueado = SesionActual.usuario();
+        if (usuarioLogueado == null || !usuarioLogueado.isAdmin()) {
+            return "redirect:/gestion";
+        }
         Optional<Prestamo> prestamoOpt = prestamoRepository.findById(id);
         if (prestamoOpt.isPresent()) {
             Prestamo prestamo = prestamoOpt.get();
@@ -139,6 +157,10 @@ public class GestionController {
     // 6. Finalizar / Eliminar Préstamo (Liberar Libro)
     @GetMapping("/eliminar-prestamo/{id}")
     public String eliminarPrestamo(@PathVariable Long id) {
+        Usuario usuarioLogueado = SesionActual.usuario();
+        if (usuarioLogueado == null || !usuarioLogueado.isAdmin()) {
+            return "redirect:/gestion";
+        }
         Optional<Prestamo> prestamoOpt = prestamoRepository.findById(id);
         if (prestamoOpt.isPresent()) {
             Prestamo prestamo = prestamoOpt.get();
@@ -154,9 +176,9 @@ public class GestionController {
 
     // 7. Eliminar Usuario
     @GetMapping("/eliminar-usuario/{id}")
-    public String eliminarUsuario(@PathVariable Long id, HttpSession session) {
-        Usuario usuarioLogueado = (Usuario) session.getAttribute("usuarioLogueado");
-        if (usuarioLogueado != null && "ADMIN".equalsIgnoreCase(usuarioLogueado.getRol())) {
+    public String eliminarUsuario(@PathVariable Long id) {
+        Usuario usuarioLogueado = SesionActual.usuario();
+        if (usuarioLogueado != null && usuarioLogueado.isAdmin()) {
             usuarioRepository.deleteById(id);
         }
         return "redirect:/gestion";
@@ -164,9 +186,9 @@ public class GestionController {
 
     // 8. Eliminar Libro
     @GetMapping("/eliminar-libro/{id}")
-    public String eliminarLibro(@PathVariable Long id, HttpSession session) {
-        Usuario usuarioLogueado = (Usuario) session.getAttribute("usuarioLogueado");
-        if (usuarioLogueado != null && "ADMIN".equalsIgnoreCase(usuarioLogueado.getRol())) {
+    public String eliminarLibro(@PathVariable Long id) {
+        Usuario usuarioLogueado = SesionActual.usuario();
+        if (usuarioLogueado != null && usuarioLogueado.isAdmin()) {
             libroRepository.deleteById(id);
         }
         return "redirect:/gestion";

@@ -1,12 +1,11 @@
 package Espresso.Overflow.Libreria.controller;
 
+import Espresso.Overflow.Libreria.config.SesionActual;
 import Espresso.Overflow.Libreria.model.Libro;
 import Espresso.Overflow.Libreria.model.Prestamo;
 import Espresso.Overflow.Libreria.model.Usuario;
 import Espresso.Overflow.Libreria.repository.LibroRepository;
 import Espresso.Overflow.Libreria.repository.PrestamoRepository;
-import Espresso.Overflow.Libreria.repository.UsuarioRepository;
-import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,17 +25,16 @@ public class PrestamoController {
     private final LibroRepository libroRepository;
 
     public PrestamoController(PrestamoRepository prestamoRepository,
-                              LibroRepository libroRepository,
-                              UsuarioRepository usuarioRepository) {
+                              LibroRepository libroRepository) {
         this.prestamoRepository = prestamoRepository;
         this.libroRepository = libroRepository;
     }
 
     // 1. Mostrar la vista del formulario para solicitar un préstamo
     @GetMapping
-    public String mostrarFormularioPrestamo(@RequestParam(name = "libroId", required = false) Long libroId, 
-                                           Model model) {
-        
+    public String mostrarFormularioPrestamo(@RequestParam(name = "libroId", required = false) Long libroId,
+                                            Model model) {
+
         // Si el usuario hizo clic en "Solicitar" desde el catálogo, precargamos la info del libro
         if (libroId != null) {
             Libro libroSeleccionado = libroRepository.findById(libroId).orElse(null);
@@ -54,11 +52,9 @@ public class PrestamoController {
     @PostMapping("/guardar")
     public String guardarPrestamo(@RequestParam("libroId") Long libroId,
                                   @RequestParam("semanas") Integer semanas,
-                                  HttpSession session,
                                   RedirectAttributes redirectAttributes) {
 
-        // Obtener el usuario activo en la sesión HTTP
-        Usuario usuarioActivo = (Usuario) session.getAttribute("usuarioLogueado");
+        Usuario usuarioActivo = SesionActual.usuario();
 
         // Seguridad: Si el usuario intenta guardar un préstamo sin haber iniciado sesión
         if (usuarioActivo == null) {
