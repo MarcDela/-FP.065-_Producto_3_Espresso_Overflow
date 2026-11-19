@@ -1,51 +1,78 @@
 package Espresso.Overflow.Libreria.controller;
 
-import Espresso.Overflow.Libreria.model.Usuario;
-import Espresso.Overflow.Libreria.repository.UsuarioRepository;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
+import Espresso.Overflow.Libreria.service.UsuarioService;
+
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-
-import java.util.Optional;
 
 @Controller
 public class AuthController {
 
-    private final UsuarioRepository usuarioRepository;
+    private final UsuarioService usuarioService;
 
-    public AuthController(UsuarioRepository usuarioRepository) {
-        this.usuarioRepository = usuarioRepository;
+    public AuthController(UsuarioService usuarioService) {
+        this.usuarioService = usuarioService;
     }
 
-    @PostMapping("/iniciar-sesion")
-    public String login(@RequestParam("email") String email,
-                        @RequestParam("password") String password,
-                        HttpSession session,
-                        HttpServletRequest request,
-                        RedirectAttributes redirectAttributes) {
+    // Mostrar formulario de login
+    @GetMapping("/login")
+    public String mostrarLogin() {
+        return "login";
+    }
 
-        Optional<Usuario> usuarioOpt = usuarioRepository.findByEmailAndPassword(email, password);
+    // Mostrar formulario de registro
+    @GetMapping("/registro")
+    public String mostrarRegistro() {
+        return "registro";
+    }
 
-        if (usuarioOpt.isPresent()) {
-            // Guardar usuario en la sesión HTTP
-            session.setAttribute("usuarioLogueado", usuarioOpt.get());
-        } else {
-            // Enviar mensaje de error
-            redirectAttributes.addFlashAttribute("errorLogin", "Email o contraseña incorrectos");
+    // Procesar el registro
+    @PostMapping("/registro")
+    public String registrarUsuario(
+            @RequestParam("nombre") String nombre,
+            @RequestParam("email") String email,
+            @RequestParam(value = "telefono", defaultValue = "")
+            String telefono,
+            @RequestParam("password") String password,
+            @RequestParam("confirmarPassword") String confirmarPassword,
+            RedirectAttributes redirectAttributes) {
+
+        try {
+
+            usuarioService.registrarUsuario(
+                    nombre,
+                    email,
+                    telefono,
+                    password,
+                    confirmarPassword
+            );
+
+            return "redirect:/login?registro";
+
+        } catch (IllegalArgumentException e) {
+
+            redirectAttributes.addFlashAttribute(
+                    "errorRegistro",
+                    e.getMessage()
+            );
+
+        } catch (DataIntegrityViolationException e) {
+
+            redirectAttributes.addFlashAttribute(
+                    "errorRegistro",
+                    "No se ha podido registrar el usuario. Comprueba los datos."
+            );
         }
 
-        // Redirigir de vuelta a la página previa
-        String referer = request.getHeader("Referer");
-        return "redirect:" + (referer != null ? referer : "/");
-    }
+        // Conservar los datos introducidos, excepto las contraseñas
+        redirectAttributes.addFlashAttribute("nombre", nombre);
+        redirectAttributes.addFlashAttribute("email", email);
+        redirectAttributes.addFlashAttribute("telefono", telefono);
 
-    @GetMapping("/cerrar-sesion")
-    public String logout(HttpSession session) {
-        session.invalidate(); // Destruir la sesión
-        return "redirect:/";
+        return "redirect:/registro";
     }
 }

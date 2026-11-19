@@ -37,3 +37,6 @@ build/
 
 ### Creación BD ###
 creacionBD.sql
+
+.env.local
+*.log

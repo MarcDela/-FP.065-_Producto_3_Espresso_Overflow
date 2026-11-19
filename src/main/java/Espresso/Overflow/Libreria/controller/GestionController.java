@@ -7,168 +7,262 @@ import Espresso.Overflow.Libreria.repository.LibroRepository;
 import Espresso.Overflow.Libreria.repository.PrestamoRepository;
 import Espresso.Overflow.Libreria.repository.UsuarioRepository;
 
-import jakarta.servlet.http.HttpSession;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.nio.charset.StandardCharsets;
+import java.security.Principal;
 import java.time.LocalDate;
-import java.util.Optional;
+import java.time.format.DateTimeParseException;
+import java.util.Locale;
 
 @Controller
-@RequestMapping("/gestion")
+@RequestMapping("/admin/gestion")
 public class GestionController {
 
     private final UsuarioRepository usuarioRepository;
     private final LibroRepository libroRepository;
     private final PrestamoRepository prestamoRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public GestionController(UsuarioRepository usuarioRepository,
-            LibroRepository libroRepository,
-            PrestamoRepository prestamoRepository) {
+                             LibroRepository libroRepository,
+                             PrestamoRepository prestamoRepository,
+                             PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
         this.libroRepository = libroRepository;
         this.prestamoRepository = prestamoRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
-    // 1. Mostrar Panel de Gestión
+    // Spring Security protege todas las rutas de este controlador: solo ADMIN.
     @GetMapping
-    public String verPanelGestion(Model model, HttpSession session) {
-        Usuario usuarioLogueado = (Usuario) session.getAttribute("usuarioLogueado");
-        if (usuarioLogueado == null || !"ADMIN".equalsIgnoreCase(usuarioLogueado.getRol())) {
-            return "gestion"; // Muestra la vista gestion.html con el banner "Acceso Restringido"
-        }
-
+    public String verPanelGestion(Model model) {
         model.addAttribute("listaUsuarios", usuarioRepository.findAll());
         model.addAttribute("listaLibros", libroRepository.findAll());
         model.addAttribute("listaPrestamos", prestamoRepository.findAll());
-
         return "gestion";
     }
 
-    // 2. Guardar o Editar Usuario
+    // Crear o editar usuarios. Solo se reciben los campos permitidos.
     @PostMapping("/guardar-usuario")
-    public String guardarUsuario(@ModelAttribute Usuario usuario, HttpSession session) {
-        Usuario usuarioLogueado = (Usuario) session.getAttribute("usuarioLogueado");
-        if (usuarioLogueado != null && "ADMIN".equalsIgnoreCase(usuarioLogueado.getRol())) {
+    public String guardarUsuario(
+            @RequestParam(name = "id", required = false) Long id,
+            @RequestParam("nombre") String nombre,
+            @RequestParam("email") String email,
+            @RequestParam(name = "telefono", defaultValue = "") String telefono,
+            @RequestParam(name = "password", defaultValue = "") String password,
+            @RequestParam("rol") String rol,
+            Principal principal,
+            RedirectAttributes mensajes) {
 
-            // Si es una edición y la contraseña viene vacía, conservar la clave actual
-            if (usuario.getId() != null) {
-                Optional<Usuario> uExistente = usuarioRepository.findById(usuario.getId());
-                if (uExistente.isPresent()
-                        && (usuario.getPassword() == null || usuario.getPassword().trim().isEmpty())) {
-                    usuario.setPassword(uExistente.get().getPassword());
-                }
-            }
+        nombre = nombre.trim();
+        email = email.trim().toLowerCase(Locale.ROOT);
+        telefono = telefono.trim();
 
-            usuarioRepository.save(usuario);
+        if (nombre.isBlank() || nombre.length() > 255
+                || email.length() > 255
+                || !email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
+                || telefono.length() > 255) {
+            return error(mensajes, "usuarios", "Comprueba el nombre, correo y teléfono.");
         }
-        return "redirect:/gestion";
+        if (!"ADMIN".equals(rol) && !"USER".equals(rol)) {
+            return error(mensajes, "usuarios", "El rol indicado no es válido.");
+        }
+
+        Usuario usuario = id == null ? new Usuario()
+                : usuarioRepository.findById(id).orElse(null);
+        if (usuario == null) {
+            return error(mensajes, "usuarios", "El usuario no existe.");
+        }
+
+        // Evitar perder la propia identidad o los permisos de administración.
+        if (id != null && usuario.getEmail().equalsIgnoreCase(principal.getName())
+                && (!email.equalsIgnoreCase(usuario.getEmail()) || !"ADMIN".equals(rol))) {
+            return error(mensajes, "usuarios", "No puedes cambiar tu propio correo ni quitarte el rol ADMIN.");
+        }
+
+        Usuario duplicado = usuarioRepository.findByEmailIgnoreCase(email).orElse(null);
+        if (duplicado != null && !duplicado.getId().equals(id)) {
+            return error(mensajes, "usuarios", "El correo electrónico ya está registrado.");
+        }
+
+        // En una edición, una contraseña vacía conserva el hash existente.
+        if (id == null || !password.isEmpty()) {
+            if (password.length() < 8
+                    || password.getBytes(StandardCharsets.UTF_8).length > 72) {
+                return error(mensajes, "usuarios", "La contraseña debe tener al menos 8 caracteres y un máximo de 72 bytes.");
+            }
+            usuario.setPassword(passwordEncoder.encode(password));
+        }
+        usuario.setNombre(nombre);
+        usuario.setEmail(email);
+        usuario.setTelefono(telefono);
+        usuario.setRol(rol);
+        try {
+            usuarioRepository.saveAndFlush(usuario);
+        } catch (DataIntegrityViolationException e) {
+            return error(mensajes, "usuarios", "No se ha podido guardar el usuario. Comprueba que el correo sea único.");
+        }
+        return exito(mensajes, "usuarios", "Usuario guardado correctamente.");
     }
 
-    // 3. Guardar o Editar Libro
     @PostMapping("/guardar-libro")
-    public String guardarLibro(@ModelAttribute Libro libro, HttpSession session) {
-        Usuario usuarioLogueado = (Usuario) session.getAttribute("usuarioLogueado");
-        if (usuarioLogueado != null && "ADMIN".equalsIgnoreCase(usuarioLogueado.getRol())) {
+    public String guardarLibro(
+            @RequestParam(name = "id", required = false) Long id,
+            @RequestParam("titulo") String titulo,
+            @RequestParam("autor") String autor,
+            @RequestParam(name = "linkimagen", defaultValue = "") String linkimagen,
+            @RequestParam(name = "descripcion", defaultValue = "") String descripcion,
+            RedirectAttributes mensajes) {
 
-            if (libro.getId() == null) {
-                // Libro nuevo: disponible por defecto
-                libro.setDisponible(true);
-            } else {
-                // Editar libro: conservar su estado de disponibilidad actual
-                Optional<Libro> lExistente = libroRepository.findById(libro.getId());
-                lExistente.ifPresent(value -> libro.setDisponible(value.getDisponible()));
-            }
-
-            libroRepository.save(libro);
+        titulo = titulo.trim();
+        autor = autor.trim();
+        linkimagen = linkimagen.trim();
+        if (titulo.isBlank() || titulo.length() > 255
+                || autor.isBlank() || autor.length() > 255) {
+            return error(mensajes, "libros", "Introduce un título y un autor válidos.");
         }
-        return "redirect:/gestion";
-    }
-
-    // Registrar Nuevo Préstamo (Selección manual de Usuario, Libro y Semanas)
-    @PostMapping("/nuevo-prestamo")
-    public String nuevoPrestamo(@RequestParam Long usuarioId,
-            @RequestParam Long libroId,
-            @RequestParam(defaultValue = "2") Integer semanas,
-            HttpSession session) {
-        Usuario usuarioLogueado = (Usuario) session.getAttribute("usuarioLogueado");
-        if (usuarioLogueado != null && "ADMIN".equalsIgnoreCase(usuarioLogueado.getRol())) {
-
-            Optional<Usuario> usuarioOpt = usuarioRepository.findById(usuarioId);
-            Optional<Libro> libroOpt = libroRepository.findById(libroId);
-
-            if (usuarioOpt.isPresent() && libroOpt.isPresent()) {
-                Libro libro = libroOpt.get();
-                Usuario usuario = usuarioOpt.get();
-
-                if (libro.getDisponible()) {
-                    // Validar que las semanas estén entre 1 y 4
-                    int semanasValidadas = Math.min(Math.max(semanas, 1), 4);
-
-                    // Crear entidad préstamo
-                    Prestamo prestamo = new Prestamo();
-                    prestamo.setUsuario(usuario);
-                    prestamo.setLibro(libro);
-                    prestamo.setFechaPrestamo(LocalDate.now());
-                    prestamo.setFechaDevolucion(LocalDate.now().plusWeeks(semanasValidadas));
-
-                    // Marcar libro como no disponible
-                    libro.setDisponible(false);
-
-                    libroRepository.save(libro);
-                    prestamoRepository.save(prestamo);
+        if (!linkimagen.isEmpty()) {
+            try {
+                java.net.URI url = java.net.URI.create(linkimagen);
+                if (!("https".equalsIgnoreCase(url.getScheme()) || "http".equalsIgnoreCase(url.getScheme()))
+                        || url.getHost() == null) {
+                    return error(mensajes, "libros", "La URL de portada debe ser HTTP o HTTPS.");
                 }
+            } catch (IllegalArgumentException e) {
+                return error(mensajes, "libros", "La URL de portada no es válida.");
             }
         }
-        return "redirect:/gestion";
+
+        Libro libro = id == null ? new Libro() : libroRepository.findById(id).orElse(null);
+        if (libro == null) {
+            return error(mensajes, "libros", "El libro no existe.");
+        }
+        libro.setTitulo(titulo);
+        libro.setAutor(autor);
+        libro.setLinkimagen(linkimagen.isEmpty() ? null : linkimagen);
+        libro.setDescripcion(descripcion);
+        // Los libros nuevos están disponibles; en edición se conserva el estado.
+        if (id == null) {
+            libro.setDisponible(true);
+        }
+        libroRepository.save(libro);
+        return exito(mensajes, "libros", "Libro guardado correctamente.");
     }
 
-    // 5. Editar Fecha Límite de Préstamo
+    @Transactional
+    @PostMapping("/nuevo-prestamo")
+    public String nuevoPrestamo(@RequestParam("usuarioId") Long usuarioId,
+                                @RequestParam("libroId") Long libroId,
+                                @RequestParam(name = "semanas", defaultValue = "2") Integer semanas,
+                                RedirectAttributes mensajes) {
+        if (semanas < 1 || semanas > 4) {
+            return error(mensajes, "prestamos", "La duración debe estar entre 1 y 4 semanas.");
+        }
+        Usuario usuario = usuarioRepository.findById(usuarioId).orElse(null);
+        Libro libro = libroRepository.findById(libroId).orElse(null);
+        if (usuario == null || libro == null || !Boolean.TRUE.equals(libro.getDisponible())) {
+            return error(mensajes, "prestamos", "El usuario no existe o el libro no está disponible.");
+        }
+        LocalDate hoy = LocalDate.now();
+        Prestamo prestamo = new Prestamo();
+        prestamo.setUsuario(usuario);
+        prestamo.setLibro(libro);
+        prestamo.setFechaPrestamo(hoy);
+        prestamo.setFechaDevolucion(hoy.plusWeeks(semanas));
+        prestamoRepository.save(prestamo);
+        libro.setDisponible(false);
+        libroRepository.save(libro);
+        return exito(mensajes, "prestamos", "Préstamo registrado correctamente.");
+    }
+
     @PostMapping("/editar-prestamo")
-    public String editarPrestamo(@RequestParam Long id, @RequestParam String fechaDevolucion) {
-        Optional<Prestamo> prestamoOpt = prestamoRepository.findById(id);
-        if (prestamoOpt.isPresent()) {
-            Prestamo prestamo = prestamoOpt.get();
-            prestamo.setFechaDevolucion(LocalDate.parse(fechaDevolucion));
-            prestamoRepository.save(prestamo);
+    public String editarPrestamo(@RequestParam("id") Long id,
+                                 @RequestParam("fechaDevolucion") String fechaDevolucion,
+                                 RedirectAttributes mensajes) {
+        Prestamo prestamo = prestamoRepository.findById(id).orElse(null);
+        if (prestamo == null) {
+            return error(mensajes, "prestamos", "El préstamo no existe.");
         }
-        return "redirect:/gestion";
+        LocalDate fecha;
+        try {
+            fecha = LocalDate.parse(fechaDevolucion);
+        } catch (DateTimeParseException e) {
+            return error(mensajes, "prestamos", "Introduce una fecha válida.");
+        }
+        if (fecha.isBefore(prestamo.getFechaPrestamo())) {
+            return error(mensajes, "prestamos", "La devolución no puede ser anterior al inicio del préstamo.");
+        }
+        prestamo.setFechaDevolucion(fecha);
+        prestamoRepository.save(prestamo);
+        return exito(mensajes, "prestamos", "Fecha de devolución actualizada.");
     }
 
-    // 6. Finalizar / Eliminar Préstamo (Liberar Libro)
-    @GetMapping("/eliminar-prestamo/{id}")
-    public String eliminarPrestamo(@PathVariable Long id) {
-        Optional<Prestamo> prestamoOpt = prestamoRepository.findById(id);
-        if (prestamoOpt.isPresent()) {
-            Prestamo prestamo = prestamoOpt.get();
-            if (prestamo.getLibro() != null) {
-                Libro libro = prestamo.getLibro();
-                libro.setDisponible(true);
-                libroRepository.save(libro);
-            }
-            prestamoRepository.deleteById(id);
+    @Transactional
+    @PostMapping("/eliminar-prestamo/{id}")
+    public String eliminarPrestamo(@PathVariable("id") Long id, RedirectAttributes mensajes) {
+        Prestamo prestamo = prestamoRepository.findById(id).orElse(null);
+        if (prestamo == null) {
+            return error(mensajes, "prestamos", "El préstamo no existe.");
         }
-        return "redirect:/gestion";
+        Libro libro = prestamo.getLibro();
+        libro.setDisponible(true);
+        libroRepository.save(libro);
+        prestamoRepository.delete(prestamo);
+        return exito(mensajes, "prestamos", "Préstamo finalizado y libro disponible de nuevo.");
     }
 
-    // 7. Eliminar Usuario
-    @GetMapping("/eliminar-usuario/{id}")
-    public String eliminarUsuario(@PathVariable Long id, HttpSession session) {
-        Usuario usuarioLogueado = (Usuario) session.getAttribute("usuarioLogueado");
-        if (usuarioLogueado != null && "ADMIN".equalsIgnoreCase(usuarioLogueado.getRol())) {
-            usuarioRepository.deleteById(id);
+    @PostMapping("/eliminar-usuario/{id}")
+    public String eliminarUsuario(@PathVariable("id") Long id,
+                                  Principal principal, RedirectAttributes mensajes) {
+        Usuario usuario = usuarioRepository.findById(id).orElse(null);
+        if (usuario == null) {
+            return error(mensajes, "usuarios", "El usuario no existe.");
         }
-        return "redirect:/gestion";
+        if (usuario.getEmail().equalsIgnoreCase(principal.getName())) {
+            return error(mensajes, "usuarios", "No puedes eliminar tu propia cuenta de administrador.");
+        }
+        if (!prestamoRepository.findByUsuarioId(id).isEmpty()) {
+            return error(mensajes, "usuarios", "No se puede eliminar un usuario con préstamos activos.");
+        }
+        try {
+            usuarioRepository.delete(usuario);
+        } catch (DataIntegrityViolationException e) {
+            return error(mensajes, "usuarios", "El usuario tiene registros relacionados y no se puede eliminar.");
+        }
+        return exito(mensajes, "usuarios", "Usuario eliminado correctamente.");
     }
 
-    // 8. Eliminar Libro
-    @GetMapping("/eliminar-libro/{id}")
-    public String eliminarLibro(@PathVariable Long id, HttpSession session) {
-        Usuario usuarioLogueado = (Usuario) session.getAttribute("usuarioLogueado");
-        if (usuarioLogueado != null && "ADMIN".equalsIgnoreCase(usuarioLogueado.getRol())) {
-            libroRepository.deleteById(id);
+    @PostMapping("/eliminar-libro/{id}")
+    public String eliminarLibro(@PathVariable("id") Long id, RedirectAttributes mensajes) {
+        Libro libro = libroRepository.findById(id).orElse(null);
+        if (libro == null) {
+            return error(mensajes, "libros", "El libro no existe.");
         }
-        return "redirect:/gestion";
+        if (!Boolean.TRUE.equals(libro.getDisponible()) || !prestamoRepository.findByLibroId(id).isEmpty()) {
+            return error(mensajes, "libros", "No se puede eliminar un libro con préstamos activos.");
+        }
+        try {
+            libroRepository.delete(libro);
+        } catch (DataIntegrityViolationException e) {
+            return error(mensajes, "libros", "El libro tiene registros relacionados y no se puede eliminar.");
+        }
+        return exito(mensajes, "libros", "Libro eliminado correctamente.");
+    }
+
+    private String error(RedirectAttributes mensajes, String tab, String texto) {
+        mensajes.addFlashAttribute("error", texto);
+        return "redirect:/admin/gestion?tab=" + tab;
+    }
+
+    private String exito(RedirectAttributes mensajes, String tab, String texto) {
+        mensajes.addFlashAttribute("success", texto);
+        return "redirect:/admin/gestion?tab=" + tab;
     }
 }

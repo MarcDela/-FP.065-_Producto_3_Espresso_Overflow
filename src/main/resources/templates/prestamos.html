@@ -18,17 +18,17 @@
             <p class="text-slate-400 text-sm">Selecciona el libro y la duración estimada para formalizar el préstamo</p>
         </div>
 
-        <!-- Alerta si NO hay sesión iniciada -->
-        <div th:if="${session.usuarioLogueado == null}" 
+        <!-- Alerta para visitantes (la ruta está protegida por Spring Security) -->
+        <div th:if="${not usuarioAutenticado}" 
              class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-center justify-between gap-4 text-amber-300">
             <div class="flex items-center gap-3 text-sm">
                 <span class="text-xl">⚠️</span>
                 <span>Debes <strong>iniciar sesión</strong> para poder formalizar la solicitud del préstamo.</span>
             </div>
-            <button type="button" onclick="openLoginModal()" 
+            <a th:href="@{/login}" 
                     class="px-3.5 py-1.5 bg-amber-500 text-slate-950 font-bold text-xs rounded-lg hover:bg-amber-400 transition whitespace-nowrap">
                 Iniciar Sesión
-            </button>
+            </a>
         </div>
 
         <!-- Mensaje de error Flash (si venía redirigido) -->
@@ -39,13 +39,13 @@
         </div>
 
         <!-- Formulario de Préstamo -->
-        <form th:action="@{/prestamos/guardar}" method="POST" class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
+        <form th:action="@{/user/prestamos/guardar}" method="POST" onsubmit="return validarSeleccion()" class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
             
             <!-- Libro Seleccionado -->
             <div class="space-y-2">
                 <label class="block text-sm font-semibold text-slate-300">Libro Seleccionado</label>
                 <div class="flex items-center gap-4 p-4 bg-slate-900/80 rounded-xl border border-slate-700/60">
-                    <input type="hidden" id="libroIdInput" name="libroId" th:value="${libroSeleccionado != null ? libroSeleccionado.id : ''}" required />
+                    <input type="hidden" id="libroIdInput" name="libroId" th:value="${libroSeleccionado != null ? libroSeleccionado.id : ''}" />
                     
                     <div class="flex-1">
                         <p id="libroTituloDisplay" class="font-bold text-slate-100" 
@@ -65,6 +65,10 @@
                 </div>
             </div>
 
+            <p id="errorSeleccion" role="alert" class="hidden text-sm text-rose-300">
+                Debes seleccionar un libro antes de confirmar el préstamo.
+            </p>
+
             <!-- Selector Fecha / Duración por Semanas -->
             <div class="space-y-2">
                 <label for="semanas" class="block text-sm font-semibold text-slate-300">Duración del préstamo (Semanas)</label>
@@ -76,8 +80,8 @@
                 </select>
             </div>
 
-            <!-- Botón de Confirmación (Condicionado por sesión) -->
-            <button th:if="${session.usuarioLogueado != null}" 
+            <!-- Botón de confirmación (usuario autenticado) -->
+            <button th:if="${usuarioAutenticado}" 
                     type="submit" 
                     class="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-teal-500 to-sky-500 hover:from-teal-400 hover:to-sky-400 text-slate-950 font-bold shadow-lg shadow-teal-500/10 transition">
                 Confirmar Solicitud de Préstamo
@@ -91,7 +95,7 @@
             
             <div class="flex justify-between items-center border-b border-slate-700 pb-3">
                 <h3 class="text-lg font-bold text-slate-100">Catálogo de Libros Disponibles</h3>
-                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-100">✕</button>
+                <button type="button" onclick="closeModal()" class="text-slate-400 hover:text-slate-100">✕</button>
             </div>
 
             <!-- Buscador en tiempo real -->
@@ -100,6 +104,9 @@
 
             <!-- Listado con tarjetas/filas de libros -->
             <div class="max-h-72 overflow-y-auto space-y-3 pr-1" id="listaLibros">
+                <p th:if="${#lists.isEmpty(librosDisponibles)}" class="text-sm text-slate-400 text-center py-6">
+                    No hay libros disponibles en este momento.
+                </p>
                 <div th:each="libro : ${librosDisponibles}" 
                      class="libro-item bg-slate-900/60 border border-slate-700/50 p-3 rounded-xl flex items-center justify-between hover:border-teal-500/50 transition">
                     <div>
@@ -107,7 +114,8 @@
                         <p class="text-xs text-slate-400 libro-autor" th:text="${libro.autor}">Autor</p>
                     </div>
                     <button type="button" 
-                            th:onclick="seleccionarLibro([[${libro.id}]], [[${libro.titulo}]], [[${libro.autor}]])"
+                            th:attr="data-id=${libro.id},data-titulo=${libro.titulo},data-autor=${libro.autor}"
+                            onclick="seleccionarLibro(this)"
                             class="px-3 py-1.5 bg-teal-500/10 text-teal-400 border border-teal-500/20 text-xs font-semibold rounded-lg hover:bg-teal-500/20 transition">
                         Seleccionar
                     </button>
@@ -121,11 +129,18 @@
         function openModal() { document.getElementById('libroModal').classList.remove('hidden'); }
         function closeModal() { document.getElementById('libroModal').classList.add('hidden'); }
         
-        function seleccionarLibro(id, titulo, autor) {
-            document.getElementById('libroIdInput').value = id;
-            document.getElementById('libroTituloDisplay').innerText = titulo;
-            document.getElementById('libroAutorDisplay').innerText = autor;
+        function seleccionarLibro(boton) {
+            document.getElementById('libroIdInput').value = boton.dataset.id;
+            document.getElementById('libroTituloDisplay').textContent = boton.dataset.titulo;
+            document.getElementById('libroAutorDisplay').textContent = boton.dataset.autor;
+            document.getElementById('errorSeleccion').classList.add('hidden');
             closeModal();
+        }
+
+        function validarSeleccion() {
+            const seleccionado = document.getElementById('libroIdInput').value.trim() !== '';
+            document.getElementById('errorSeleccion').classList.toggle('hidden', seleccionado);
+            return seleccionado;
         }
 
         function filtrarLibros() {

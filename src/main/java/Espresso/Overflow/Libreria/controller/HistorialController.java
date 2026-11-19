@@ -5,61 +5,101 @@ import Espresso.Overflow.Libreria.model.Prestamo;
 import Espresso.Overflow.Libreria.model.Usuario;
 import Espresso.Overflow.Libreria.repository.LibroRepository;
 import Espresso.Overflow.Libreria.repository.PrestamoRepository;
-import jakarta.servlet.http.HttpSession;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import Espresso.Overflow.Libreria.repository.UsuarioRepository;
 
+import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.security.access.AccessDeniedException;
+
+import java.security.Principal;
 import java.util.List;
 
 @Controller
+@RequestMapping("/user")
 public class HistorialController {
 
     private final PrestamoRepository prestamoRepository;
     private final LibroRepository libroRepository;
+    private final UsuarioRepository usuarioRepository;
 
-    // Inyectamos ambos repositorios en el constructor
-    public HistorialController(PrestamoRepository prestamoRepository, LibroRepository libroRepository) {
+    public HistorialController(
+            PrestamoRepository prestamoRepository,
+            LibroRepository libroRepository,
+            UsuarioRepository usuarioRepository) {
+
         this.prestamoRepository = prestamoRepository;
         this.libroRepository = libroRepository;
+        this.usuarioRepository = usuarioRepository;
     }
 
+    // Mostrar únicamente los préstamos del usuario autenticado
     @GetMapping("/historial")
-    public String mostrarHistorial(HttpSession session, Model model) {
-        Usuario usuarioActivo = (Usuario) session.getAttribute("usuarioLogueado");
+    public String mostrarHistorial(
+            Principal principal,
+            Model model) {
 
-        if (usuarioActivo != null) {
-            List<Prestamo> prestamosUsuario = prestamoRepository.findByUsuarioId(usuarioActivo.getId());
-            model.addAttribute("prestamos", prestamosUsuario);
-        } else {
-            model.addAttribute("prestamos", List.of());
-        }
+        Usuario usuarioActivo = usuarioRepository
+                .findByEmailIgnoreCase(principal.getName())
+                .orElseThrow(() ->
+                        new AccessDeniedException(
+                                "Usuario no encontrado"));
+
+        List<Prestamo> prestamosUsuario =
+                prestamoRepository.findByUsuarioId(
+                        usuarioActivo.getId());
+
+        model.addAttribute("prestamos", prestamosUsuario);
 
         return "historial";
     }
 
-    // --- Método para procesar la devolución ---
+    // Devolver un préstamo propio
+    @Transactional
     @PostMapping("/prestamos/devolver")
-    public String devolverPrestamo(@RequestParam("prestamoId") Long prestamoId, HttpSession session) {
-        Usuario usuarioActivo = (Usuario) session.getAttribute("usuarioLogueado");
+    public String devolverPrestamo(
+            @RequestParam("prestamoId") Long prestamoId,
+            Principal principal,
+            RedirectAttributes redirectAttributes) {
 
-        // Verificamos que haya usuario en sesión por seguridad
-        if (usuarioActivo != null) {
-            Prestamo prestamo = prestamoRepository.findById(prestamoId).orElse(null);
+        Usuario usuarioActivo = usuarioRepository
+                .findByEmailIgnoreCase(principal.getName())
+                .orElseThrow(() ->
+                        new AccessDeniedException(
+                                "Usuario no encontrado"));
 
-            if (prestamo != null) {
-                // 1. Cambiamos el estado del libro a disponible
-                Libro libro = prestamo.getLibro();
-                libro.setDisponible(true);
-                libroRepository.save(libro);
+        // Buscar el préstamo verificando su propietario
+        Prestamo prestamo = prestamoRepository
+                .findByIdAndUsuarioId(
+                        prestamoId,
+                        usuarioActivo.getId())
+                .orElse(null);
 
-                // 2. Eliminamos el registro del préstamo
-                prestamoRepository.delete(prestamo);
-            }
+        // Impedir devolver préstamos de otros usuarios
+        if (prestamo == null) {
+
+            redirectAttributes.addFlashAttribute(
+                    "error",
+                    "No tienes permiso para devolver este préstamo.");
+
+            return "redirect:/user/historial";
         }
 
-        return "redirect:/historial";
+        // Liberar el libro
+        Libro libro = prestamo.getLibro();
+
+        libro.setDisponible(true);
+        libroRepository.save(libro);
+
+        // Eliminar el préstamo
+        prestamoRepository.delete(prestamo);
+
+        redirectAttributes.addFlashAttribute(
+                "success",
+                "Libro devuelto correctamente.");
+
+        return "redirect:/user/historial";
     }
 }
