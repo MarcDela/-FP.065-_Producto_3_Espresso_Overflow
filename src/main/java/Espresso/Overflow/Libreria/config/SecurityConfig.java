@@ -14,10 +14,11 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/login", "/registro", "/test", "/error").permitAll()
-                        .requestMatchers("/prestamos").permitAll()
-                        .requestMatchers("/historial", "/prestamos/**", "/gestion/**").authenticated()
+                        .requestMatchers("/", "/login", "/registro", "/test", "/error", "/acceso-denegado").permitAll()
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/user/**").hasAnyRole("USER", "ADMIN")
                         .anyRequest().permitAll())
+                .exceptionHandling(ex -> ex.accessDeniedPage("/acceso-denegado"))
                 .formLogin(form -> form
                         .loginPage("/login")
                         .usernameParameter("email")

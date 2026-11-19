@@ -1,16 +1,23 @@
 package Espresso.Overflow.Libreria.model;
 
 import jakarta.persistence.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+import lombok.ToString;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
 @Entity
 @Table(name = "usuarios")
+@Data
+@NoArgsConstructor
 public class Usuario implements UserDetails {
 
     @Id
@@ -25,6 +32,7 @@ public class Usuario implements UserDetails {
     @Column(nullable = false, unique = true)
     private String email;
 
+    @ToString.Exclude
     @Column(nullable = false)
     private String password;
 
@@ -38,8 +46,11 @@ public class Usuario implements UserDetails {
     @Column(name = "fecha_registro")
     private LocalDate fechaRegistro;
 
-    public Usuario() {
-    }
+    @OneToMany(mappedBy = "usuario")
+    @OrderBy("fechaPrestamo DESC")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Prestamo> prestamos = new ArrayList<>();
 
     @PrePersist
     public void prePersist() {
@@ -65,79 +76,6 @@ public class Usuario implements UserDetails {
 
     public boolean isAdmin() {
         return "ROLE_ADMIN".equals(normalizarRol(this.rol));
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getNombre() {
-        return nombre;
-    }
-
-    public void setNombre(String nombre) {
-        this.nombre = nombre;
-    }
-
-    public String getApellidos() {
-        return apellidos;
-    }
-
-    public void setApellidos(String apellidos) {
-        this.apellidos = apellidos;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    @Override
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public String getTelefono() {
-        return telefono;
-    }
-
-    public void setTelefono(String telefono) {
-        this.telefono = telefono;
-    }
-
-    public String getRol() {
-        return rol;
-    }
-
-    public void setRol(String rol) {
-        this.rol = rol;
-    }
-
-    public Boolean getActivo() {
-        return activo;
-    }
-
-    public void setActivo(Boolean activo) {
-        this.activo = activo;
-    }
-
-    public LocalDate getFechaRegistro() {
-        return fechaRegistro;
-    }
-
-    public void setFechaRegistro(LocalDate fechaRegistro) {
-        this.fechaRegistro = fechaRegistro;
     }
 
     @Override

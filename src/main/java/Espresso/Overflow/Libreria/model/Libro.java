@@ -2,7 +2,12 @@ package Espresso.Overflow.Libreria.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "libros")
@@ -35,4 +40,9 @@ public class Libro {
 
     @Column(nullable = false)
     private Boolean disponible = true;
+
+    @OneToMany(mappedBy = "libro")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Prestamo> prestamos = new ArrayList<>();
 }

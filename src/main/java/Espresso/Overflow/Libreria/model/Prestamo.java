@@ -16,13 +16,24 @@ public class Prestamo {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(optional = false)
     @JoinColumn(name = "libro_id", nullable = false)
     private Libro libro;
 
-    @ManyToOne
+    @ManyToOne(optional = false)
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;
+
+    public void vincular(Usuario usuario, Libro libro) {
+        this.usuario = usuario;
+        this.libro = libro;
+        if (usuario != null && !usuario.getPrestamos().contains(this)) {
+            usuario.getPrestamos().add(this);
+        }
+        if (libro != null && !libro.getPrestamos().contains(this)) {
+            libro.getPrestamos().add(this);
+        }
+    }
 
     @Column(name = "fecha_prestamo", nullable = false)
     private LocalDate fechaPrestamo;

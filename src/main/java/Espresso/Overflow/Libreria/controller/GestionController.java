@@ -14,10 +14,11 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Optional;
 
 @Controller
-@RequestMapping("/gestion")
+@RequestMapping("/admin")
 public class GestionController {
 
     private final UsuarioRepository usuarioRepository;
@@ -78,7 +79,7 @@ public class GestionController {
             usuario.setRol(Usuario.normalizarRol(usuario.getRol()));
             usuarioRepository.save(usuario);
         }
-        return "redirect:/gestion";
+        return "redirect:/admin";
     }
 
     // 3. Guardar o Editar Libro
@@ -98,7 +99,7 @@ public class GestionController {
 
             libroRepository.save(libro);
         }
-        return "redirect:/gestion";
+        return "redirect:/admin";
     }
 
     // Registrar Nuevo Préstamo (Selección manual de Usuario, Libro y Semanas)
@@ -120,12 +121,10 @@ public class GestionController {
                     // Validar que las semanas estén entre 1 y 4
                     int semanasValidadas = Math.min(Math.max(semanas, 1), 4);
 
-                    // Crear entidad préstamo
                     Prestamo prestamo = new Prestamo();
-                    prestamo.setUsuario(usuario);
-                    prestamo.setLibro(libro);
                     prestamo.setFechaPrestamo(LocalDate.now());
                     prestamo.setFechaDevolucion(LocalDate.now().plusWeeks(semanasValidadas));
+                    prestamo.vincular(usuario,libro);
 
                     // Marcar libro como no disponible
                     libro.setDisponible(false);
@@ -135,7 +134,7 @@ public class GestionController {
                 }
             }
         }
-        return "redirect:/gestion";
+        return "redirect:/admin";
     }
 
     // 5. Editar Fecha Límite de Préstamo
@@ -143,7 +142,7 @@ public class GestionController {
     public String editarPrestamo(@RequestParam Long id, @RequestParam String fechaDevolucion) {
         Usuario usuarioLogueado = SesionActual.usuario();
         if (usuarioLogueado == null || !usuarioLogueado.isAdmin()) {
-            return "redirect:/gestion";
+            return "redirect:/admin";
         }
         Optional<Prestamo> prestamoOpt = prestamoRepository.findById(id);
         if (prestamoOpt.isPresent()) {
@@ -151,7 +150,7 @@ public class GestionController {
             prestamo.setFechaDevolucion(LocalDate.parse(fechaDevolucion));
             prestamoRepository.save(prestamo);
         }
-        return "redirect:/gestion";
+        return "redirect:/admin";
     }
 
     // 6. Finalizar / Eliminar Préstamo (Liberar Libro)
@@ -159,7 +158,7 @@ public class GestionController {
     public String eliminarPrestamo(@PathVariable Long id) {
         Usuario usuarioLogueado = SesionActual.usuario();
         if (usuarioLogueado == null || !usuarioLogueado.isAdmin()) {
-            return "redirect:/gestion";
+            return "redirect:/admin";
         }
         Optional<Prestamo> prestamoOpt = prestamoRepository.findById(id);
         if (prestamoOpt.isPresent()) {
@@ -171,17 +170,23 @@ public class GestionController {
             }
             prestamoRepository.deleteById(id);
         }
-        return "redirect:/gestion";
+        return "redirect:/admin";
     }
 
     // 7. Eliminar Usuario
     @GetMapping("/eliminar-usuario/{id}")
     public String eliminarUsuario(@PathVariable Long id) {
         Usuario usuarioLogueado = SesionActual.usuario();
-        if (usuarioLogueado != null && usuarioLogueado.isAdmin()) {
-            usuarioRepository.deleteById(id);
+        if (usuarioLogueado != null && usuarioLogueado.isAdmin() && !usuarioLogueado.getId().equals(id)) {
+            usuarioRepository.findById(id).ifPresent(usuario -> {
+                for (Prestamo prestamo : new ArrayList<>(usuario.getPrestamos())) {
+                    liberarLibro(prestamo);
+                    prestamoRepository.delete(prestamo);
+                }
+                usuarioRepository.delete(usuario);
+            });
         }
-        return "redirect:/gestion";
+        return "redirect:/admin";
     }
 
     // 8. Eliminar Libro
@@ -189,8 +194,21 @@ public class GestionController {
     public String eliminarLibro(@PathVariable Long id) {
         Usuario usuarioLogueado = SesionActual.usuario();
         if (usuarioLogueado != null && usuarioLogueado.isAdmin()) {
-            libroRepository.deleteById(id);
+            libroRepository.findById(id).ifPresent(libro -> {
+                for(Prestamo prestamo : new ArrayList<>(libro.getPrestamos())){
+                    prestamoRepository.delete(prestamo);
+                }
+                libroRepository.delete(libro);
+            });
         }
-        return "redirect:/gestion";
+        return "redirect:/admin";
+    }
+
+    private void liberarLibro (Prestamo prestamo){
+        Libro libro = prestamo.getLibro();
+        if(libro != null){
+            libro.setDisponible(true);
+            libroRepository.save(libro);
+        }
     }
 }

@@ -16,6 +16,11 @@
     <div class="text-center space-y-2">
         <h1 class="text-3xl font-extrabold text-slate-100">Solicitar Nuevo Préstamo</h1>
         <p class="text-slate-400 text-sm">Selecciona el libro y la duración estimada para formalizar el préstamo</p>
+        <p th:if="${usuarioLogueado != null}" class="text-sm text-teal-300">
+            El préstamo quedará asociado a
+            <strong th:text="${usuarioLogueado.nombre}">Nombre</strong>
+            (<span th:text="${usuarioLogueado.email}">email</span>).
+        </p>
     </div>
 
     <div th:if="${usuarioLogueado == null}"
@@ -38,9 +43,8 @@
     </div>
 
     <!-- Formulario de Préstamo -->
-    <form th:action="@{/prestamos/guardar}" method="POST" class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
-
-        <!-- Libro Seleccionado -->
+    <form th:action="@{/user/prestamos/guardar}" method="POST" class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
+    <!-- Libro Seleccionado -->
         <div class="space-y-2">
             <label class="block text-sm font-semibold text-slate-300">Libro Seleccionado</label>
             <div class="flex items-center gap-4 p-4 bg-slate-900/80 rounded-xl border border-slate-700/60">

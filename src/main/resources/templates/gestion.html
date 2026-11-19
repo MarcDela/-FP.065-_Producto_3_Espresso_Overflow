@@ -93,6 +93,7 @@
                         <th class="p-3">Email</th>
                         <th class="p-3">Teléfono</th>
                         <th class="p-3">Rol</th>
+                        <th class="p-3 text-center">Préstamos</th>
                         <th class="p-3 text-right">Acciones</th>
                     </tr>
                     </thead>
@@ -108,14 +109,16 @@
                                           th:classappend="${usuario.admin} ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-slate-700 text-slate-300 border-slate-600'"
                                           class="px-2.5 py-0.5 text-[10px] font-bold rounded-full border">ADMIN</span>
                         </td>
+                        <td class="p-3 text-center font-semibold text-slate-200"
+                            th:text="${usuario.prestamos != null ? usuario.prestamos.size() : 0}">0</td>
                         <td class="p-3 text-right space-x-2">
                             <button
                                     th:onclick="prepararEdicionUsuario([[${usuario.id}]], [[${usuario.nombre}]], [[${usuario.email}]], [[${usuario.telefono}]], [[${usuario.rol}]])"
                                     class="px-2.5 py-1 text-xs bg-sky-500/10 hover:bg-sky-500 text-sky-400 hover:text-slate-950 border border-sky-500/20 font-semibold rounded-lg transition">
                                 Editar
                             </button>
-                            <a th:href="@{/gestion/eliminar-usuario/{id}(id=${usuario.id})}"
-                               onclick="return confirm('¿Seguro que deseas eliminar este usuario?');"
+                            <a th:href="@{/admin/eliminar-usuario/{id}(id=${usuario.id})}"
+                               onclick="return confirm('¿Seguro que deseas eliminar este usuario? Sus préstamos se cerrarán y los libros volverán a estar disponibles.');"
                                class="px-2.5 py-1 text-xs bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-slate-950 border border-rose-500/20 font-semibold rounded-lg transition">
                                 Eliminar
                             </a>
@@ -171,7 +174,7 @@
                                         class="px-2.5 py-1 text-xs bg-sky-500/10 hover:bg-sky-500 text-sky-400 hover:text-slate-950 border border-sky-500/20 font-semibold rounded-lg transition">
                                     Editar
                                 </button>
-                                <a th:href="@{/gestion/eliminar-libro/{id}(id=${libro.id})}"
+                                <a th:href="@{/admin/eliminar-libro/{id}(id=${libro.id})}"
                                    onclick="return confirm('¿Eliminar este libro del catálogo?');"
                                    class="px-2.5 py-1 text-xs bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-slate-950 border border-rose-500/20 font-semibold rounded-lg transition">
                                     Eliminar
@@ -217,7 +220,7 @@
                                         class="px-2.5 py-1 text-xs bg-sky-500/10 hover:bg-sky-500 text-sky-400 hover:text-slate-950 border border-sky-500/20 font-semibold rounded-lg transition">
                                     Ampliar Plazo
                                 </button>
-                                <a th:href="@{/gestion/eliminar-prestamo/{id}(id=${p.id})}"
+                                <a th:href="@{/admin/eliminar-prestamo/{id}(id=${p.id})}"
                                    onclick="return confirm('¿Registrar devolución y finalizar este préstamo?');"
                                    class="px-2.5 py-1 text-xs bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-slate-950 border border-emerald-500/20 font-semibold rounded-lg transition">
                                     Finalizar
@@ -241,7 +244,7 @@
             <h3 id="tituloModalUsuario" class="font-bold text-lg text-slate-100">Crear Nuevo Usuario</h3>
             <button onclick="cerrarModales()" class="text-slate-400 hover:text-white">✕</button>
         </div>
-        <form th:action="@{/gestion/guardar-usuario}" method="POST" class="space-y-4">
+        <form th:action="@{/admin/guardar-usuario}" method="POST" class="space-y-4">
             <input type="hidden" name="id" id="u_id">
             <div>
                 <label class="block text-xs font-bold text-slate-400 mb-1">Nombre Completo</label>
@@ -292,7 +295,7 @@
             <h3 id="tituloModalLibro" class="font-bold text-lg text-slate-100">Añadir Nuevo Libro</h3>
             <button onclick="cerrarModales()" class="text-slate-400 hover:text-white">✕</button>
         </div>
-        <form th:action="@{/gestion/guardar-libro}" method="POST" class="space-y-4">
+        <form th:action="@{/admin/guardar-libro}" method="POST" class="space-y-4">
             <input type="hidden" name="id" id="l_id">
             <div>
                 <label class="block text-xs font-bold text-slate-400 mb-1">Título</label>
@@ -334,7 +337,7 @@
             <h3 class="font-bold text-lg text-slate-100">Registrar Nuevo Préstamo</h3>
             <button onclick="cerrarModales()" class="text-slate-400 hover:text-white">✕</button>
         </div>
-        <form th:action="@{/gestion/nuevo-prestamo}" method="POST" class="space-y-4">
+        <form th:action="@{/admin/nuevo-prestamo}" method="POST" class="space-y-4">
             <div>
                 <label class="block text-xs font-bold text-slate-400 mb-1">Seleccionar Usuario</label>
                 <select name="usuarioId" required
@@ -382,7 +385,7 @@
             <h3 id="tituloModalEditarPrestamo" class="font-bold text-lg text-slate-100">Modificar Préstamo</h3>
             <button onclick="cerrarModales()" class="text-slate-400 hover:text-white">✕</button>
         </div>
-        <form th:action="@{/gestion/editar-prestamo}" method="POST" class="space-y-4">
+        <form th:action="@{/admin/editar-prestamo}" method="POST" class="space-y-4">
             <input type="hidden" name="id" id="p_id">
             <div>
                 <label class="block text-xs font-bold text-slate-400 mb-1">Nueva Fecha Límite de Devolución</label>

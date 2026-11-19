@@ -53,6 +53,11 @@ public class HomeController {
         return "index";
     }
 
+    @GetMapping("/acceso-denegado")
+    public String accesoDenegado(){
+        return "acceso-denegado";
+    }
+
     // Ruta de pagina de prueba (Producto 1)
     @GetMapping("/test")
     public String helloWorld(Model model) {

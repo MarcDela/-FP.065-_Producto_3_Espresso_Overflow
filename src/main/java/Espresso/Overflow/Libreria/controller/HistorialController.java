@@ -6,6 +6,7 @@ import Espresso.Overflow.Libreria.model.Prestamo;
 import Espresso.Overflow.Libreria.model.Usuario;
 import Espresso.Overflow.Libreria.repository.LibroRepository;
 import Espresso.Overflow.Libreria.repository.PrestamoRepository;
+import Espresso.Overflow.Libreria.repository.UsuarioRepository;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,20 +20,21 @@ public class HistorialController {
 
     private final PrestamoRepository prestamoRepository;
     private final LibroRepository libroRepository;
+    private final UsuarioRepository usuarioRepository;
 
-    // Inyectamos ambos repositorios en el constructor
-    public HistorialController(PrestamoRepository prestamoRepository, LibroRepository libroRepository) {
+    public HistorialController(PrestamoRepository prestamoRepository, LibroRepository libroRepository, UsuarioRepository usuarioRepository) {
         this.prestamoRepository = prestamoRepository;
         this.libroRepository = libroRepository;
+        this.usuarioRepository = usuarioRepository;
     }
 
-    @GetMapping("/historial")
+    @GetMapping("/user/historial")
     public String mostrarHistorial(Model model) {
         Usuario usuarioActivo = SesionActual.usuario();
 
         if (usuarioActivo != null) {
-            List<Prestamo> prestamosUsuario = prestamoRepository.findByUsuarioId(usuarioActivo.getId());
-            model.addAttribute("prestamos", prestamosUsuario);
+            Usuario usuario = usuarioRepository.findById(usuarioActivo.getId()).orElse(usuarioActivo);
+            model.addAttribute("prestamos", usuario.getPrestamos());
         } else {
             model.addAttribute("prestamos", List.of());
         }
@@ -41,7 +43,7 @@ public class HistorialController {
     }
 
     // --- Método para procesar la devolución ---
-    @PostMapping("/prestamos/devolver")
+    @PostMapping("/user/prestamos/devolver")
     public String devolverPrestamo(@RequestParam("prestamoId") Long prestamoId) {
         Usuario usuarioActivo = SesionActual.usuario();
 
@@ -49,17 +51,22 @@ public class HistorialController {
         if (usuarioActivo != null) {
             Prestamo prestamo = prestamoRepository.findById(prestamoId).orElse(null);
 
-            if (prestamo != null) {
-                // 1. Cambiamos el estado del libro a disponible
+            boolean esSuyo = prestamo != null
+                    && prestamo.getUsuario() != null
+                    && usuarioActivo.getId().equals(prestamo.getUsuario().getId());
+            if(esSuyo){
                 Libro libro = prestamo.getLibro();
-                libro.setDisponible(true);
-                libroRepository.save(libro);
+
+                if(libro != null) {
+                    libro.setDisponible(true);
+                    libroRepository.save(libro);
+                }
 
                 // 2. Eliminamos el registro del préstamo
                 prestamoRepository.delete(prestamo);
             }
         }
 
-        return "redirect:/historial";
+        return "redirect:/user/historial";
     }
 }
