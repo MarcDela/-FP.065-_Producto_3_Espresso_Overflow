@@ -100,7 +100,7 @@
                         ● Prestado
                     </span>
 
-                    <a th:if="${libro.disponible}" th:href="@{/prestamos(libroId=${libro.id})}" 
+                    <a th:if="${libro.disponible}" th:href="@{/user/prestamos(libroId=${libro.id})}" 
                        onclick="event.stopPropagation()"
                        class="text-xs font-semibold text-teal-400 hover:text-teal-300 transition">
                         Solicitar →
@@ -176,7 +176,7 @@
 
             if (disponible) {
                 badgeContainer.innerHTML = '<span class="px-3.5 py-1.5 text-xs font-bold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">● Disponible para préstamo</span>';
-                botonContainer.innerHTML = `<a href="/prestamos?libroId=${id}" class="inline-block px-8 py-3 bg-gradient-to-r from-teal-500 to-sky-500 hover:from-teal-400 hover:to-sky-400 text-slate-950 font-extrabold rounded-xl text-sm transition shadow-lg shadow-teal-500/10">Solicitar Préstamo</a>`;
+                botonContainer.innerHTML = `<a href="/user/prestamos?libroId=${id}" class="inline-block px-8 py-3 bg-gradient-to-r from-teal-500 to-sky-500 hover:from-teal-400 hover:to-sky-400 text-slate-950 font-extrabold rounded-xl text-sm transition shadow-lg shadow-teal-500/10">Solicitar Préstamo</a>`;
             } else {
                 badgeContainer.innerHTML = '<span class="px-3.5 py-1.5 text-xs font-bold rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">● Actualmente en préstamo</span>';
                 botonContainer.innerHTML = `<button disabled class="px-8 py-3 bg-slate-700 text-slate-400 font-bold rounded-xl text-sm cursor-not-allowed">No Disponible Actualmente</button>`;
